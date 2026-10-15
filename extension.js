@@ -1,6 +1,8 @@
 // SPDX-License-Identifier: GPL-2.0-or-later
 // SPDX-FileCopyrightText: 2026 g-freeks
 
+import Clutter from 'gi://Clutter';
+import GLib from 'gi://GLib';
 import GObject from 'gi://GObject';
 import Meta from 'gi://Meta';
 import Shell from 'gi://Shell';
@@ -15,6 +17,7 @@ export default class MinimalActivitiesOverviewExtension extends Extension {
         this._settings = this.getSettings();
         this._popup = new OverviewPopup(this._settings);
         this._superKeyHandlerId = 0;
+        this._lastSuperKeyTime = 0;
 
         Main.wm.addKeybinding('toggle-popup', this._settings,
             Meta.KeyBindingFlags.IGNORE_AUTOREPEAT,
@@ -73,9 +76,17 @@ export default class MinimalActivitiesOverviewExtension extends Extension {
     }
 
     _onSuperKey() {
-        if (this._popup.isOpen)
+        const now = GLib.get_monotonic_time() / 1000;
+        const doubleClickTime = Clutter.Settings.get_default().double_click_time;
+        const isDoublePress = now - this._lastSuperKeyTime < doubleClickTime;
+        this._lastSuperKeyTime = now;
+
+        if (this._popup.isOpen) {
             this._popup.close();
-        else if (Main.overview.visible)
+            // Super pressed twice: on to the regular overview
+            if (isDoublePress)
+                Main.overview.show();
+        } else if (Main.overview.visible)
             Main.overview.hide();
         else if (Main.actionMode === Shell.ActionMode.NORMAL)
             this._popup.open();

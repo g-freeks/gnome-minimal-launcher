@@ -27,9 +27,7 @@ focus_name='(f => f?.app?.get_name() ?? f?.metaInfo?.name ?? (f === '"$POPUP"'._
 echo "GNOME Shell $(js 'Config.PACKAGE_VERSION')"
 since=$("$VM_CMD" ssh date "'+%F %T'")
 js "$POPUP.close(); Main.overview.hide()" >/dev/null
-# Start from defaults, but with a shortcut that doesn't collide with GNOME's
-# Super+Space (input source switching)
-js "$KEYS.forEach(k => $SETTINGS.reset(k)); $SETTINGS.set_strv('toggle-popup', ['<Super>slash'])" >/dev/null
+js "$KEYS.forEach(k => $SETTINGS.reset(k))" >/dev/null
 sleep 1.5
 check "extension is active" "Main.extensionManager.lookup('$UUID').state === 1"
 
@@ -95,6 +93,14 @@ check "Super key option: Super opens the popup" "$POPUP.isOpen && !Main.overview
 key KEY_LEFTMETA
 sleep 0.8
 check "Super key option: Super closes it again" "!$POPUP.isOpen && Main.modalCount === 0"
+sleep 0.6
+# Two quick presses, without key()'s pause in between
+"$VM_CMD" key KEY_LEFTMETA
+"$VM_CMD" key KEY_LEFTMETA
+sleep 1.5
+check "Super key option: Super twice opens the overview" "!$POPUP.isOpen && Main.overview.visible"
+js "Main.overview.hide()" >/dev/null
+sleep 1.5
 js "$SETTINGS.reset('super-key-opens-popup')" >/dev/null
 
 key KEY_LEFTMETA

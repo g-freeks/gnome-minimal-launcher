@@ -2,7 +2,7 @@
 
 A GNOME Shell extension that gives you the Activities overview's search bar and dash in a small centered popup, without zooming out to the full-screen window overview.
 
-Press <kbd>Super</kbd>+<kbd>Space</kbd> and the popup appears over your current windows: the search bar on top, your pinned and running apps below it. Start typing to search, the same way as in the overview. The regular <kbd>Super</kbd> overview is left untouched.
+Press <kbd>Super</kbd>+<kbd>/</kbd> and the popup appears over your current windows: the search bar on top, your pinned and running apps below it. Start typing to search, the same way as in the overview. The regular <kbd>Super</kbd> overview is left untouched.
 
 ![The popup over open windows](docs/screenshots/popup.png)
 
@@ -17,7 +17,7 @@ Press <kbd>Super</kbd>+<kbd>Space</kbd> and the popup appears over your current 
   - <kbd>Esc</kbd> clears the search, and closes the popup once the search bar is empty.
 - **Closes when you're done.** Launching an app, choosing a result or clicking outside the popup closes it.
 - **App grid hand-off.** The dash's *Show Apps* button opens the regular overview's app grid.
-- **Can replace the overview on Super.** Optionally, the <kbd>Super</kbd> key opens the popup instead of the overview.
+- **Can replace the overview on Super.** Optionally, the <kbd>Super</kbd> key opens the popup instead of the overview, and pressing it twice opens the overview.
 
 | Searching | Selecting an app from the dash |
 |---|---|
@@ -44,10 +44,12 @@ On Wayland, GNOME Shell only loads new extensions at login, so log out and back 
 
 Open the settings from the Extensions app, or run `gnome-extensions prefs minimal-activities-overview@g-freeks.github.io`.
 
-- **Shortcut.** Default: <kbd>Super</kbd>+<kbd>Space</kbd>. GNOME also uses that combination to switch input sources (keyboard layouts). If that shortcut is still assigned, it takes precedence, and the settings window warns about it. Either pick another shortcut here, or remove or change *Switch to next input source* under Settings → Keyboard → Keyboard Shortcuts.
-- **Use the Super key.** Pressing <kbd>Super</kbd> on its own opens the popup instead of the overview. The Activities button, the hot corner and <kbd>Super</kbd>+<kbd>A</kbd> still open the overview.
+- **Shortcut.** Default: <kbd>Super</kbd>+<kbd>/</kbd>, which is free in a default GNOME. If you pick a combination GNOME already uses, GNOME's shortcut takes precedence, and the settings window warns about it.
+- **Use the Super key.** Pressing <kbd>Super</kbd> on its own opens the popup instead of the overview. Pressing <kbd>Super</kbd> twice quickly opens the overview. The Activities button, the hot corner and <kbd>Super</kbd>+<kbd>A</kbd> also still open it.
 - **Backdrop transparency.** How much of the desktop shows through behind the popup. Default: 65%.
 - **Dock at bottom of screen.** Shows the dock at the bottom edge, like the overview does, instead of attached below the search bar.
+
+The bottom of the settings window shows the installed version and links to the issue tracker.
 
 ## Development
 

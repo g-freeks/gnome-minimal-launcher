@@ -2,7 +2,7 @@
 
 This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
 
-GNOME Shell extension (UUID `minimal-activities-overview@g-freeks.github.io`). It opens a centered popup with the overview's search bar on top and the dash at the bottom, so you get search, favorites and running apps without zooming out to the window overview. The popup is toggled by its own shortcut, `toggle-popup` (default `<Super>space`). That default collides with GNOME's *Switch input source* binding, and when two bindings collide GNOME's wins. The prefs window detects such conflicts and warns. Optionally, the Super key alone opens the popup instead of the overview.
+GNOME Shell extension (UUID `minimal-activities-overview@g-freeks.github.io`). It opens a centered popup with the overview's search bar on top and the dash at the bottom, so you get search, favorites and running apps without zooming out to the window overview. The popup is toggled by its own shortcut, `toggle-popup`. The default is `<Super>slash`, chosen because it's free in a stock GNOME 49/50 and, as a Super combination, doesn't take a shortcut away from apps (Ctrl+Space would steal IDE completion). When two bindings collide, GNOME's wins, so the prefs window detects conflicts and warns. Optionally, the Super key alone opens the popup instead of the overview.
 
 It supports **GNOME Shell 49 and 50** from one codebase and one zip (`shell-version` in `metadata.json`). It runs on Wayland and uses ES modules (no `imports.*`, so nothing older than 45 is possible).
 
@@ -29,7 +29,7 @@ The list of supported versions lives in three places that must agree:
 To add a version:
 1. Add it in all three places.
 2. Run `ci/check-shell-api.sh` against it (CI does this in the matching Fedora container). It greps the shell's own JS for every internal listed in `ci/shell-api.txt`, so keep that file in sync when `popup.js` starts relying on something new.
-3. Test it in a VM: `make vm-create GNOME=<n>`, then `make vm-smoke GNOME=<n>`. `vm/smoke-test.sh` drives the popup with real key presses: open, dash and result navigation, Esc, launching, every setting including the Super key takeover, the regular overview still working, and no log errors. It switches the shortcut to `<Super>slash` because the VM keeps GNOME's Super+Space binding, resets all settings at the end, and saves screenshots to `.vm/smoke-<n>-*.png`.
+3. Test it in a VM: `make vm-create GNOME=<n>`, then `make vm-smoke GNOME=<n>`. `vm/smoke-test.sh` drives the popup with real key presses: open, dash and result navigation, Esc, launching, every setting including the Super key takeover, the regular overview still working, and no log errors. It resets all settings at the start and at the end, and saves screenshots to `.vm/smoke-<n>-*.png`.
 
 CI (`.github/workflows/ci.yml`) runs:
 - lint;
@@ -78,6 +78,7 @@ Code must meet https://gjs.guide/extensions/review-guidelines/review-guidelines.
 - `extension.js` registers the keybinding and owns one `OverviewPopup` for the extension's lifetime. It also implements the `super-key-opens-popup` option:
   - A lone Super press is mutter's `overlay-key` signal, not a keybinding.
   - The overview's handler (connected by `ControlsManager`) can't be singled out, so *all* existing `overlay-key` handlers are blocked with `GObject.signal_handlers_block_matched` while the option is on, and ours is connected. On release, ours is disconnected first, then the others are unblocked; that order avoids "handler not blocked" warnings.
+  - `_onSuperKey` treats two presses within Clutter's double-click time as "go to the overview": the second press closes the popup and calls `Main.overview.show()`.
   - The shell only allows `overlay-key` in `NORMAL | OVERVIEW` action modes, so `POPUP` is added via `Main.wm.allowKeybinding`, which lets Super also close the popup. The previous value is restored from the private `Main.wm._allowedKeybindings`.
 - `prefs.js` is the GTK4/libadwaita settings window. It runs in a separate process, so no shell imports.
   - `ShortcutRow` captures a new accelerator in an `Adw.AlertDialog` with a capture-phase key controller. Esc cancels, Backspace disables, and a modifier is required (except F-keys).
@@ -85,6 +86,7 @@ Code must meet https://gjs.guide/extensions/review-guidelines/review-guidelines.
   - `findSystemShortcut` scans GNOME's keybinding schemas to warn about conflicts.
   - Reset buttons compare the value to the schema default.
   - `Adw.ShortcutLabel` needs libadwaita 1.8, which GNOME 49 has.
+  - The footer shows `version-name` (stamped by CI on tags), or else the numeric `version` extensions.gnome.org adds, or else "Development version". It also links to `${metadata.url}/issues`. The prefs process gets metadata from the shell, so metadata changes only show after a shell restart.
 - `popup.js` holds `OverviewPopup`, which is the whole feature. It is a full-monitor dimmed backdrop (added with `Main.layoutManager.addChrome`; its colour comes from `backdrop-transparency` as an inline style) holding a column with two parts: a styled panel (search entry + results), and the dash attached below it at the same width. The dash keeps its own themed background, stretched via `x_expand` on the dash and its `_background`, plus a CSS override of the theme's `#dash` side padding.
   - With `dash-at-bottom`, `_placeDash` reparents the dash from the column to the backdrop. Two `AlignConstraint`s keep it bottom-centred as its size changes, and `translation_y` lifts it above anything below the work area. While the popup is open it holds a `Main.pushModal` grab in `ActionMode.POPUP`.
 

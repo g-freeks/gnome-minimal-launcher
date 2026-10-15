@@ -191,7 +191,7 @@ export default class MinimalActivitiesOverviewPreferences extends ExtensionPrefe
 
         const superKeyRow = new Adw.SwitchRow({
             title: _('Use the Super Key'),
-            subtitle: _('Open the popup instead of the overview. The Activities button and hot corner still open the overview.'),
+            subtitle: _('Open the popup instead of the overview. Press Super twice to open the overview. The Activities button and hot corner still open it too.'),
         });
         settings.bind('super-key-opens-popup', superKeyRow, 'active',
             Gio.SettingsBindFlags.DEFAULT);
@@ -209,6 +209,35 @@ export default class MinimalActivitiesOverviewPreferences extends ExtensionPrefe
         settings.bind('dash-at-bottom', dashRow, 'active',
             Gio.SettingsBindFlags.DEFAULT);
         appearanceGroup.add(dashRow);
+
+        page.add(this._createFooter());
+    }
+
+    _createFooter() {
+        // version-name is set when packing a release; extensions.gnome.org
+        // adds its own numeric version
+        const {'version-name': versionName, version, url} = this.metadata;
+        const versionText = versionName ?? version?.toString();
+
+        const box = new Gtk.Box({
+            orientation: Gtk.Orientation.VERTICAL,
+            halign: Gtk.Align.CENTER,
+            spacing: 6,
+        });
+        box.append(new Gtk.Label({
+            label: versionText
+                ? _('Version %s').replace('%s', versionText)
+                : _('Development version'),
+            css_classes: ['dim-label', 'caption'],
+        }));
+        box.append(new Gtk.LinkButton({
+            label: _('Report an Issue'),
+            uri: `${url}/issues`,
+        }));
+
+        const group = new Adw.PreferencesGroup();
+        group.add(box);
+        return group;
     }
 
     _createTransparencyRow(settings) {
