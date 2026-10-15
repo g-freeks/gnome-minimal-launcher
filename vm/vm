@@ -23,6 +23,8 @@ usage: [GNOME=<major>] vm/vm <command> [args]
   logs [journalctl args]     gnome-shell log of the current boot
   screenshot [file.png]      capture the VM display (default .vm/screen-<major>.png)
   key <KEY>...               press a key combo, e.g. key KEY_LEFTMETA KEY_SLASH
+  hold <down|up> <qcode>...  press or release keys separately (QEMU qcodes,
+                             e.g. hold down alt; key KEY_TAB; hold up alt)
   type <text>                type ASCII text (US layout)
   click <x> <y>              left-click at absolute screen coordinates
   snapshot <name>            snapshot the (shut off) VM
@@ -122,6 +124,13 @@ screenshot)
     magick "$out.tmp" "$out" && rm "$out.tmp"
     echo "$out" ;;
 key) "${VIRSH[@]}" send-key $VM "$@" >/dev/null ;;
+hold)
+    down=$([ "$1" = down ] && echo true || echo false)
+    shift
+    for qcode in "$@"; do
+        "${VIRSH[@]}" qemu-monitor-command $VM "{\"execute\":\"input-send-event\",\"arguments\":{\"events\":[
+            {\"type\":\"key\",\"data\":{\"down\":$down,\"key\":{\"type\":\"qcode\",\"data\":\"$qcode\"}}}]}}" >/dev/null
+    done ;;
 type) type_text "$1" ;;
 click) qmp_click "$1" "$2" ;;
 snapshot) "${VIRSH[@]}" snapshot-create-as $VM "$1" ;;

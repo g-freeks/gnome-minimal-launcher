@@ -146,6 +146,18 @@ export class PathSearchProvider {
     }
 
     async getInitialResultSet(terms, cancellable) {
+        try {
+            return await this._search(terms, cancellable);
+        } catch (e) {
+            // A newer search replaced this one. GNOME 49 doesn't catch
+            // rejected searches and would log them as unhandled.
+            if (isCancelled(e))
+                return [];
+            throw e;
+        }
+    }
+
+    async _search(terms, cancellable) {
         // Not cleared per search: the shell may still ask for metas of the
         // previous search's results while this one runs
         if (this._metas.size > MAX_CACHED_METAS)

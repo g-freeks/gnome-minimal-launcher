@@ -35,6 +35,16 @@ const NAVIGATION_KEYS = {
 };
 
 /**
+ * @param {Clutter.Event} event - a key press
+ * @returns {boolean} whether it's Alt+Tab or Shift+Alt+Tab
+ */
+function isAltTab(event) {
+    const symbol = event.get_key_symbol();
+    return (symbol === Clutter.KEY_Tab || symbol === Clutter.KEY_ISO_Left_Tab) &&
+        (event.get_state() & Clutter.ModifierType.MOD1_MASK) !== 0;
+}
+
+/**
  * Calls `construct()` while recording the signal handlers it connects on
  * `targets` (objects or prototypes), so they can be disconnected later.
  *
@@ -101,6 +111,7 @@ class LauncherPopup extends St.Widget {
         this._settings = settings;
         this._grab = null;
         this._previewing = false;
+        this._switchTarget = null;
         this._lastResultFocus = null;
         this._searchHandlers = [];
         this._searchProviders = new Map();
@@ -223,6 +234,7 @@ class LauncherPopup extends St.Widget {
         }, this);
 
         this.connect('key-press-event', this._onKeyPress.bind(this));
+        this.connect('key-release-event', this._onKeyRelease.bind(this));
         this.connect('button-release-event', this._onButtonRelease.bind(this));
         this.connect('destroy', this._onDestroy.bind(this));
 
@@ -264,13 +276,18 @@ class LauncherPopup extends St.Widget {
         if (!this.isOpen)
             return;
 
+        // Hiding would unmap the SearchController, which then resets the
+        // search itself, hiding result widgets halfway through unmapping
+        // (a Clutter assertion). Reset it first, while still modal.
+        this._searchController.reset();
+
         this._unpatchOverview();
         Main.popModal(this._grab);
         this._grab = null;
         this._setLastResultFocus(null);
         this._completionCancellable?.cancel();
+        this._endSwitch();
 
-        // Hiding unmaps the SearchController, which resets the search.
         this.remove_all_transitions();
         this.hide();
         this._syncPreview();
@@ -447,6 +464,11 @@ class LauncherPopup extends St.Widget {
     }
 
     _onEntryKeyPress(text, event) {
+        if (isAltTab(event)) {
+            this._switchApp(event);
+            return Clutter.EVENT_STOP;
+        }
+
         switch (event.get_key_symbol()) {
         case Clutter.KEY_Escape:
             // SearchController would clear the entry and drop key focus, and
@@ -514,6 +536,17 @@ class LauncherPopup extends St.Widget {
         const symbol = event.get_key_symbol();
         const focus = global.stage.key_focus;
 
+        if (isAltTab(event)) {
+            this._switchApp(event);
+            return Clutter.EVENT_STOP;
+        }
+
+        if (this._switchTarget && symbol === Clutter.KEY_Escape) {
+            this._endSwitch();
+            this._entry.grab_key_focus();
+            return Clutter.EVENT_STOP;
+        }
+
         if (symbol in NAVIGATION_KEYS && focus && this._navigate(focus, symbol))
             return Clutter.EVENT_STOP;
 
@@ -568,6 +601,57 @@ class LauncherPopup extends St.Widget {
         }
 
         return false;
+    }
+
+    // Alt+Tab while the popup is open steps through the dash's running apps,
+    // starting after the focused one (like the regular switcher); releasing
+    // Alt switches to the selected app. The shell's own switcher isn't
+    // available here: its keybinding doesn't run in the POPUP action mode.
+    _switchApp(event) {
+        const items = this._dash.visible
+            ? this._dash._box.get_children().filter(
+                item => item.child?._delegate?.app?.state === Shell.AppState.RUNNING)
+            : [];
+        if (items.length === 0)
+            return;
+
+        const backward = event.get_key_symbol() === Clutter.KEY_ISO_Left_Tab ||
+            (event.get_state() & Clutter.ModifierType.SHIFT_MASK) !== 0;
+        let index = items.indexOf(this._switchTarget);
+        if (index < 0) {
+            const focusApp = Shell.WindowTracker.get_default().focus_app;
+            index = items.findIndex(item => item.child._delegate.app === focusApp);
+        }
+        index += backward ? -1 : 1;
+        const target = items[(index % items.length + items.length) % items.length];
+
+        this._endSwitch();
+        this._switchTarget = target;
+        // The dash rebuilds items when apps start or quit
+        target.connectObject('destroy', () => (this._switchTarget = null), this);
+        target.child.grab_key_focus();
+        target.showLabel();
+    }
+
+    _onKeyRelease(actor, event) {
+        const altKeys = [Clutter.KEY_Alt_L, Clutter.KEY_Alt_R,
+            Clutter.KEY_Meta_L, Clutter.KEY_Meta_R];
+        if (!this._switchTarget || !altKeys.includes(event.get_key_symbol()))
+            return Clutter.EVENT_PROPAGATE;
+
+        const target = this._switchTarget;
+        this._endSwitch();
+        // Activating closes the popup, like clicking the icon. If focus
+        // moved away with the arrow keys meanwhile, switch to nothing.
+        if (target.child.has_key_focus())
+            target.child._delegate.activate(1);
+        return Clutter.EVENT_STOP;
+    }
+
+    _endSwitch() {
+        this._switchTarget?.disconnectObject(this);
+        this._switchTarget?.hideLabel();
+        this._switchTarget = null;
     }
 
     // Results are destroyed when the search changes, so forget them then

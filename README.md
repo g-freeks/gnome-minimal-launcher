@@ -15,6 +15,7 @@ Press <kbd>Super</kbd> and the popup appears over your current windows: the sear
   - <kbd>←</kbd>/<kbd>→</kbd> move within a row.
   - <kbd>Tab</kbd> cycles through the results.
   - <kbd>Esc</kbd> clears the search, and closes the popup once the search bar is empty.
+- **Switch apps with <kbd>Alt</kbd>+<kbd>Tab</kbd>.** While the launcher is open, <kbd>Alt</kbd>+<kbd>Tab</kbd> steps through the running apps in the dock (<kbd>Shift</kbd> goes back), and releasing <kbd>Alt</kbd> switches to the selected one. <kbd>Esc</kbd> cancels.
 - **Closes when you're done.** Launching an app, choosing a result or clicking outside the popup closes it.
 - **Open paths.** Type or paste a path starting with `/` or `~` (or a `file://` URI). Open it, or show it in Files. Matching files and folders are suggested, and <kbd>Tab</kbd> completes the path like a terminal does.
 - **Run commands.** Type `run` followed by a command, for example `run code ~/project`, and press <kbd>Enter</kbd>. It runs in the background through `/bin/sh` from your home folder. If it fails, a notification shows the end of its error output.

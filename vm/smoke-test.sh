@@ -12,6 +12,8 @@ SETTINGS="Main.extensionManager.lookup('$UUID').stateObj._settings"
 KEYS="['toggle-popup', 'super-key-opens-popup', 'backdrop-transparency', 'dash-at-bottom', 'enable-path-search', 'enable-run-command', 'vertical-position', 'show-dash', 'dash-icon-scale', 'show-preview']"
 
 failures=0
+# Give the shell a moment: a key press right as a window closes can get lost
+close_window() { js "global.display.focus_window?.delete(global.get_current_time())" >/dev/null; sleep 1; }
 js() { "$VM_CMD" eval "$1" | sed -E "s/^\(true, '\"?(.*)\"?'\)$/\1/" | sed -E 's/"$//'; }
 key() { "$VM_CMD" key "$@"; sleep 0.4; }
 check() { # <description> <js expression expected to be true>
@@ -70,10 +72,9 @@ sleep 2.5
 key KEY_ENTER
 sleep 3
 check "Enter launches the top result and closes" "!$POPUP.isOpen && global.display.focus_window?.title === 'Calculator'"
-js "global.display.focus_window?.delete(global.get_current_time())" >/dev/null
+close_window
 
 # Search providers
-close_window() { js "global.display.focus_window?.delete(global.get_current_time())" >/dev/null; sleep 1; }
 notifications="Main.messageTray.getSources().flatMap(s => s.notifications).map(n => n.title + ' ' + n.body).join('|')"
 
 key KEY_LEFTMETA KEY_SLASH
@@ -122,6 +123,30 @@ js "$SETTINGS.set_boolean('enable-path-search', false); $SETTINGS.set_boolean('e
 check "providers can be switched off" "$POPUP._searchProviders.size === 0"
 js "$SETTINGS.reset('enable-path-search'); $SETTINGS.reset('enable-run-command')" >/dev/null
 check "and on again" "$POPUP._searchProviders.size === 2"
+
+# Alt+Tab over the dock's running apps
+"$VM_CMD" ssh 'export DBUS_SESSION_BUS_ADDRESS=unix:path=/run/user/$(id -u)/bus WAYLAND_DISPLAY=wayland-0 XDG_RUNTIME_DIR=/run/user/$(id -u); for app in org.gnome.TextEditor org.gnome.Calculator; do (setsid gtk-launch $app >/dev/null 2>&1 &); sleep 2; done'
+sleep 3
+focused_app="imports.gi.Shell.WindowTracker.get_default().focus_app?.get_name()"
+target_app="$POPUP._switchTarget?.child._delegate.app.get_name()"
+key KEY_LEFTMETA KEY_SLASH
+sleep 0.6
+"$VM_CMD" hold down alt
+key KEY_TAB
+check "Alt+Tab: selects a running app other than the focused one" "!!$target_app && $target_app !== $focused_app"
+key KEY_ESC
+"$VM_CMD" hold up alt
+check "Alt+Tab: Esc cancels, the popup stays open" "$POPUP.isOpen && !$POPUP._switchTarget"
+"$VM_CMD" hold down alt
+key KEY_TAB
+selected=$(js "$target_app")
+"$VM_CMD" hold up alt
+sleep 1.5
+check "Alt+Tab: releasing Alt switches to it ($selected)" "!$POPUP.isOpen && $focused_app === '$selected'"
+key KEY_LEFTALT KEY_TAB
+sleep 1
+check "Alt+Tab without the popup is GNOME's own switcher" "!$POPUP.isOpen"
+for _ in 1 2; do close_window; done
 
 js "$SETTINGS.set_int('backdrop-transparency', 20)" >/dev/null
 check "backdrop transparency setting applies" "$POPUP.style.includes('0.8)')"
@@ -223,7 +248,7 @@ check "re-enabling activates it again" "Main.extensionManager.lookup('$UUID').st
 
 js "$KEYS.forEach(k => $SETTINGS.reset(k))" >/dev/null
 
-errors=$("$VM_CMD" logs --since "'$since'" | grep -cE "JS ERROR|already disposed|$UUID" || true)
+errors=$("$VM_CMD" logs --since "'$since'" | grep -cE "JS ERROR|already disposed|assertion .* failed|Unhandled promise|$UUID" || true)
 check "no errors in the shell log during the test" "$errors === 0"
 
 echo
