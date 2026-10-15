@@ -19,6 +19,7 @@ const PANEL_TOP = 0.15;
 const PANEL_WIDTH = 0.5;
 const PANEL_SEARCH_HEIGHT = 0.5;
 const DASH_MAX_HEIGHT = 0.12;
+const DASH_BOTTOM_MARGIN = 0.02;
 
 const FADE_TIME = 120;
 
@@ -88,7 +89,7 @@ function createSearchController(entry, showAppsButton) {
 
 export const OverviewPopup = GObject.registerClass(
 class OverviewPopup extends St.Widget {
-    _init() {
+    _init(settings) {
         super._init({
             style_class: 'minimal-overview-backdrop',
             reactive: true,
@@ -96,6 +97,7 @@ class OverviewPopup extends St.Widget {
         });
         this.add_constraint(new Layout.MonitorConstraint({primary: true}));
 
+        this._settings = settings;
         this._grab = null;
         this._lastResultFocus = null;
         this._searchHandlers = [];
@@ -144,7 +146,30 @@ class OverviewPopup extends St.Widget {
 
         this._panel.add_child(entryBin);
         this._panel.add_child(this._searchController);
-        this._column.add_child(this._dash);
+
+        // Used while the dash sits at the bottom of the screen instead of in
+        // the column; the bottom margin is applied as a translation
+        this._dashBottomConstraints = [
+            new Clutter.AlignConstraint({
+                source: this,
+                align_axis: Clutter.AlignAxis.X_AXIS,
+                factor: 0.5,
+            }),
+            new Clutter.AlignConstraint({
+                source: this,
+                align_axis: Clutter.AlignAxis.Y_AXIS,
+                factor: 1,
+            }),
+        ];
+        this._placeDash();
+
+        this._settings.connectObject(
+            'changed::backdrop-transparency', () => this._updateBackdrop(),
+            'changed::dash-at-bottom', () => {
+                this._placeDash();
+                this._updateSize();
+            }, this);
+        this._updateBackdrop();
 
         this._searchController.connectObject('notify::search-active',
             () => this._onSearchChanged(), this);
@@ -221,11 +246,39 @@ class OverviewPopup extends St.Widget {
         delete Main.overview.toggle;
     }
 
+    _updateBackdrop() {
+        const transparency = this._settings.get_int('backdrop-transparency');
+        const alpha = (100 - transparency) / 100;
+        this.style = `background-color: rgba(0, 0, 0, ${alpha});`;
+    }
+
+    _placeDash() {
+        const atBottom = this._settings.get_boolean('dash-at-bottom');
+        const parent = atBottom ? this : this._column;
+        if (this._dash.get_parent() === parent)
+            return;
+
+        this._dash.get_parent()?.remove_child(this._dash);
+        for (const constraint of this._dashBottomConstraints) {
+            if (atBottom)
+                this._dash.add_constraint(constraint);
+            else
+                this._dash.remove_constraint(constraint);
+        }
+        if (!atBottom) {
+            this._dash.width = -1;
+            this._dash.translation_y = 0;
+        }
+        parent.add_child(this._dash);
+    }
+
     // Positioned explicitly (the backdrop has no layout manager) so the top
     // edge stays put while the panel grows downwards with search results.
     // Coordinates are relative to the backdrop, i.e. the primary monitor.
     _updateSize() {
         const monitor = Main.layoutManager.primaryMonitor;
+        if (!monitor)
+            return;
         const workArea = Main.layoutManager.getWorkAreaForMonitor(monitor.index);
         const width = Math.round(monitor.width * PANEL_WIDTH);
 
@@ -235,6 +288,14 @@ class OverviewPopup extends St.Widget {
         this._column.width = width;
         this._searchHeight = Math.round(monitor.height * PANEL_SEARCH_HEIGHT);
         this._dash.setMaxSize(width, Math.round(monitor.height * DASH_MAX_HEIGHT));
+
+        if (this._dash.get_parent() === this) {
+            const belowWorkArea =
+                monitor.y + monitor.height - (workArea.y + workArea.height);
+            this._dash.width = width;
+            this._dash.translation_y =
+                -(belowWorkArea + Math.round(monitor.height * DASH_BOTTOM_MARGIN));
+        }
     }
 
     _onSearchChanged() {

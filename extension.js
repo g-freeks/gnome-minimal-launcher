@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: GPL-2.0-or-later
 // SPDX-FileCopyrightText: 2026 g-freeks
 
+import GObject from 'gi://GObject';
 import Meta from 'gi://Meta';
 import Shell from 'gi://Shell';
 
@@ -12,19 +13,71 @@ import {OverviewPopup} from './popup.js';
 export default class MinimalActivitiesOverviewExtension extends Extension {
     enable() {
         this._settings = this.getSettings();
-        this._popup = new OverviewPopup();
+        this._popup = new OverviewPopup(this._settings);
+        this._superKeyHandlerId = 0;
 
         Main.wm.addKeybinding('toggle-popup', this._settings,
             Meta.KeyBindingFlags.IGNORE_AUTOREPEAT,
             Shell.ActionMode.NORMAL | Shell.ActionMode.POPUP,
             () => this._popup.toggle());
+
+        this._settings.connectObject('changed::super-key-opens-popup',
+            () => this._syncSuperKey(), this);
+        this._syncSuperKey();
     }
 
     disable() {
+        this._settings.disconnectObject(this);
+        this._releaseSuperKey();
         Main.wm.removeKeybinding('toggle-popup');
 
         this._popup.destroy();
         this._popup = null;
         this._settings = null;
+    }
+
+    _syncSuperKey() {
+        if (this._settings.get_boolean('super-key-opens-popup'))
+            this._takeSuperKey();
+        else
+            this._releaseSuperKey();
+    }
+
+    // A lone Super press is mutter's overlay key, not a regular keybinding.
+    // The overview's handler (in ui/overviewControls.js) has no handle we can
+    // reach, so block every existing overlay-key handler while we own it.
+    _takeSuperKey() {
+        if (this._superKeyHandlerId)
+            return;
+
+        GObject.signal_handlers_block_matched(global.display,
+            {signalId: 'overlay-key'});
+        this._superKeyHandlerId = global.display.connect('overlay-key',
+            () => this._onSuperKey());
+
+        // Also let it through while the popup holds its modal grab
+        this._overlayKeyModes = Main.wm._allowedKeybindings['overlay-key'];
+        Main.wm.allowKeybinding('overlay-key',
+            this._overlayKeyModes | Shell.ActionMode.POPUP);
+    }
+
+    _releaseSuperKey() {
+        if (!this._superKeyHandlerId)
+            return;
+
+        global.display.disconnect(this._superKeyHandlerId);
+        this._superKeyHandlerId = 0;
+        GObject.signal_handlers_unblock_matched(global.display,
+            {signalId: 'overlay-key'});
+        Main.wm.allowKeybinding('overlay-key', this._overlayKeyModes);
+    }
+
+    _onSuperKey() {
+        if (this._popup.isOpen)
+            this._popup.close();
+        else if (Main.overview.visible)
+            Main.overview.hide();
+        else if (Main.actionMode === Shell.ActionMode.NORMAL)
+            this._popup.open();
     }
 }

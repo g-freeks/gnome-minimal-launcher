@@ -28,3 +28,7 @@ ui/main.js	^export function pushModal\(actor, params
 ui/main.js	^export function popModal\(grab\)
 ui/windowManager.js	^    addKeybinding\(name, settings, flags, modes, handler\)
 misc/parentalControlsManager.js	^export function getDefault\(\)
+ui/overviewControls.js	global\.display\.connectObject\(.overlay-key.
+ui/windowManager.js	^    allowKeybinding\(name, modes\)
+ui/windowManager.js	this\._allowedKeybindings = \{\}
+ui/main.js	wm\.allowKeybinding\(.overlay-key.

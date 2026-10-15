@@ -1,10 +1,6 @@
 /* SPDX-License-Identifier: GPL-2.0-or-later */
 /* SPDX-FileCopyrightText: 2026 g-freeks */
 
-.minimal-overview-backdrop {
-  background-color: rgba(0, 0, 0, 0.35);
-}
-
 .minimal-overview-column {
   spacing: 8px;
 }
@@ -19,7 +15,7 @@
 
 /* The theme pads #dash by 6px left/right, which would make its background
    narrower than the panel above */
-.minimal-overview-column #dash {
+.minimal-overview-backdrop #dash {
   padding-left: 0;
   padding-right: 0;
 }

@@ -3,8 +3,23 @@
   <schema id="org.gnome.shell.extensions.minimal-activities-overview"
           path="/org/gnome/shell/extensions/minimal-activities-overview/">
     <key name="toggle-popup" type="as">
-      <default><![CDATA[['<Super>slash']]]></default>
-      <summary>Toggle the overview popup</summary>
+      <default><![CDATA[['<Super>space']]]></default>
+      <summary>Shortcut that opens and closes the popup</summary>
+    </key>
+    <key name="super-key-opens-popup" type="b">
+      <default>false</default>
+      <summary>Open the popup with the Super key instead of the overview</summary>
+      <description>The Activities button and hot corner still open the overview.</description>
+    </key>
+    <key name="backdrop-transparency" type="i">
+      <range min="0" max="100"/>
+      <default>65</default>
+      <summary>Transparency of the backdrop behind the popup, in percent</summary>
+    </key>
+    <key name="dash-at-bottom" type="b">
+      <default>false</default>
+      <summary>Show the dash at the bottom of the screen</summary>
+      <description>Instead of attached below the search panel.</description>
     </key>
   </schema>
 </schemalist>

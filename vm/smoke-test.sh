@@ -8,6 +8,8 @@ VM_CMD=$(dirname "$0")/vm
 source "$(dirname "$0")/common.sh"
 UUID=$(grep -oP '"uuid":\s*"\K[^"]+' "$REPO/metadata.json")
 POPUP="Main.extensionManager.lookup('$UUID').stateObj._popup"
+SETTINGS="Main.extensionManager.lookup('$UUID').stateObj._settings"
+KEYS="['toggle-popup', 'super-key-opens-popup', 'backdrop-transparency', 'dash-at-bottom']"
 
 failures=0
 js() { "$VM_CMD" eval "$1" | sed -E "s/^\(true, '\"?(.*)\"?'\)$/\1/" | sed -E 's/"$//'; }
@@ -25,6 +27,9 @@ focus_name='(f => f?.app?.get_name() ?? f?.metaInfo?.name ?? (f === '"$POPUP"'._
 echo "GNOME Shell $(js 'Config.PACKAGE_VERSION')"
 since=$("$VM_CMD" ssh date "'+%F %T'")
 js "$POPUP.close(); Main.overview.hide()" >/dev/null
+# Start from defaults, but with a shortcut that doesn't collide with GNOME's
+# Super+Space (input source switching)
+js "$KEYS.forEach(k => $SETTINGS.reset(k)); $SETTINGS.set_strv('toggle-popup', ['<Super>slash'])" >/dev/null
 sleep 1.5
 check "extension is active" "Main.extensionManager.lookup('$UUID').state === 1"
 
@@ -67,9 +72,34 @@ sleep 3
 check "Enter launches the top result and closes" "!$POPUP.isOpen && global.display.focus_window?.title === 'Calculator'"
 js "global.display.focus_window?.delete(global.get_current_time())" >/dev/null
 
+js "$SETTINGS.set_int('backdrop-transparency', 20)" >/dev/null
+check "backdrop transparency setting applies" "$POPUP.style.includes('0.8)')"
+js "$SETTINGS.reset('backdrop-transparency')" >/dev/null
+
+js "$SETTINGS.set_boolean('dash-at-bottom', true)" >/dev/null
+key KEY_LEFTMETA KEY_SLASH
+sleep 0.6
+check "dock at bottom: dock sits at the bottom of the screen" "(([, y]) => y + $POPUP._dash.height > Main.layoutManager.primaryMonitor.height * 0.9)($POPUP._dash.get_transformed_position())"
+check "dock at bottom: search entry has focus" "(global.stage.key_focus === $POPUP._entry.clutter_text)"
+key KEY_DOWN
+check "dock at bottom: Down focuses the dock" "$POPUP._dash.contains(global.stage.key_focus)"
+"$VM_CMD" screenshot "$STATE/smoke-$GNOME-dock-bottom.png" >/dev/null
+key KEY_ESC
+js "$SETTINGS.reset('dash-at-bottom')" >/dev/null
+check "dock returns below the search bar" "$POPUP._dash.get_parent() === $POPUP._column"
+
+js "$SETTINGS.set_boolean('super-key-opens-popup', true)" >/dev/null
+key KEY_LEFTMETA
+sleep 0.8
+check "Super key option: Super opens the popup" "$POPUP.isOpen && !Main.overview.visible"
+key KEY_LEFTMETA
+sleep 0.8
+check "Super key option: Super closes it again" "!$POPUP.isOpen && Main.modalCount === 0"
+js "$SETTINGS.reset('super-key-opens-popup')" >/dev/null
+
 key KEY_LEFTMETA
 sleep 1.5
-check "Super still opens the regular overview" "Main.overview.visible"
+check "Super opens the regular overview again" "Main.overview.visible"
 "$VM_CMD" type set
 sleep 1
 check "type-to-search still works in the overview" "Main.overview.searchEntry.text === 'set'"
@@ -87,6 +117,8 @@ sleep 1
 js "Main.extensionManager.enableExtension('$UUID')" >/dev/null
 sleep 1.5
 check "re-enabling activates it again" "Main.extensionManager.lookup('$UUID').state === 1"
+
+js "$KEYS.forEach(k => $SETTINGS.reset(k))" >/dev/null
 
 errors=$("$VM_CMD" logs --since "'$since'" | grep -cE "JS ERROR|already disposed|$UUID" || true)
 check "no errors in the shell log during the test" "$errors === 0"
