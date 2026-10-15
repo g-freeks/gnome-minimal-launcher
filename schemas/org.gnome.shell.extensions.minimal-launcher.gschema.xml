@@ -1,13 +1,13 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <schemalist>
-  <schema id="org.gnome.shell.extensions.minimal-activities-overview"
-          path="/org/gnome/shell/extensions/minimal-activities-overview/">
+  <schema id="org.gnome.shell.extensions.minimal-launcher"
+          path="/org/gnome/shell/extensions/minimal-launcher/">
     <key name="toggle-popup" type="as">
       <default><![CDATA[['<Super>slash']]]></default>
       <summary>Shortcut that opens and closes the popup</summary>
     </key>
     <key name="super-key-opens-popup" type="b">
-      <default>false</default>
+      <default>true</default>
       <summary>Open the popup with the Super key instead of the overview</summary>
       <description>Pressing Super twice quickly opens the overview. The Activities button and hot corner still open the overview.</description>
     </key>

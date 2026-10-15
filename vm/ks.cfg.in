@@ -35,7 +35,7 @@ set -eux
 # The updates repo above doesn't reliably end up applied by the installer,
 # and the shell version should match what users of this release run
 dnf -y upgrade --refresh
-UUID=minimal-activities-overview@g-freeks.github.io
+UUID=minimal-launcher@g-freeks.github.io
 
 # A text-mode install leaves multi-user.target as default
 systemctl set-default graphical.target

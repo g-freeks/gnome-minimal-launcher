@@ -1,8 +1,8 @@
-# Minimal Activities Overview
+# Minimal Launcher
 
-A GNOME Shell extension that gives you the Activities overview's search bar and dash in a small centered popup, without zooming out to the full-screen window overview.
+A low-distraction application launcher for GNOME Shell. It gives you the Activities overview's search bar and dash in a small centered popup, without zooming out to the full-screen window overview.
 
-Press <kbd>Super</kbd>+<kbd>/</kbd> and the popup appears over your current windows: the search bar on top, your pinned and running apps below it. Start typing to search, the same way as in the overview. The regular <kbd>Super</kbd> overview is left untouched.
+Press <kbd>Super</kbd> and the popup appears over your current windows: the search bar on top, your pinned and running apps below it. Start typing to search, the same way as in the overview. Press <kbd>Super</kbd> twice for the regular overview. <kbd>Super</kbd>+<kbd>/</kbd> also opens the popup, even with the <kbd>Super</kbd> key behaviour turned off.
 
 ![The popup over open windows](docs/screenshots/popup.png)
 
@@ -19,7 +19,7 @@ Press <kbd>Super</kbd>+<kbd>/</kbd> and the popup appears over your current wind
 - **Open paths.** Type or paste a path starting with `/` or `~` (or a `file://` URI). Open it, or show it in Files. Matching files and folders are suggested, and <kbd>Tab</kbd> completes the path like a terminal does.
 - **Run commands.** Type `run` followed by a command, for example `run code ~/project`, and press <kbd>Enter</kbd>. It runs in the background through `/bin/sh` from your home folder. If it fails, a notification shows the end of its error output.
 - **App grid hand-off.** The dash's *Show Apps* button opens the regular overview's app grid.
-- **Can replace the overview on Super.** Optionally, the <kbd>Super</kbd> key opens the popup instead of the overview, and pressing it twice opens the overview.
+- **Takes over the Super key.** <kbd>Super</kbd> opens the popup instead of the overview, and pressing it twice opens the overview. This can be turned off.
 
 | Searching | Selecting an app from the dash |
 |---|---|
@@ -34,8 +34,8 @@ The extension reuses internal parts of GNOME Shell, so other versions are not su
 ## Installation
 
 ```sh
-git clone https://github.com/g-freeks/gnome-minimal-activities-overview.git
-cd gnome-minimal-activities-overview
+git clone https://github.com/g-freeks/gnome-minimal-launcher.git
+cd gnome-minimal-launcher
 make install
 make enable
 ```
@@ -44,10 +44,10 @@ On Wayland, GNOME Shell only loads new extensions at login, so log out and back 
 
 ## Settings
 
-Open the settings from the Extensions app, or run `gnome-extensions prefs minimal-activities-overview@g-freeks.github.io`.
+Open the settings from the Extensions app, or run `gnome-extensions prefs minimal-launcher@g-freeks.github.io`.
 
 - **Shortcut.** Default: <kbd>Super</kbd>+<kbd>/</kbd>, which is free in a default GNOME. If you pick a combination GNOME already uses, GNOME's shortcut takes precedence, and the settings window warns about it.
-- **Use the Super key.** Pressing <kbd>Super</kbd> on its own opens the popup instead of the overview. Pressing <kbd>Super</kbd> twice quickly opens the overview. The Activities button, the hot corner and <kbd>Super</kbd>+<kbd>A</kbd> also still open it.
+- **Use the Super key.** On by default. Pressing <kbd>Super</kbd> on its own opens the popup instead of the overview. Pressing <kbd>Super</kbd> twice quickly opens the overview. The Activities button, the hot corner and <kbd>Super</kbd>+<kbd>A</kbd> also still open it.
 - **Backdrop transparency.** How much of the desktop shows through behind the popup. Default: 65%.
 - **Dock at bottom of screen.** Shows the dock at the bottom edge, like the overview does, instead of attached below the search bar.
 - **Open paths / Run commands.** Turn the two search additions on or off. Both are on by default.

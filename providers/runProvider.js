@@ -56,7 +56,7 @@ async function readAll(stream, cancellable) {
  */
 export class RunCommandProvider {
     constructor() {
-        this.id = 'minimal-activities-overview-run';
+        this.id = 'minimal-launcher-run';
         this.appInfo = createProviderAppInfo(_('Run Command'), 'system-run-symbolic');
         this.isRemoteProvider = false;
         this.canLaunchSearch = false;

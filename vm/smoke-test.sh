@@ -30,6 +30,7 @@ js "$POPUP.close(); Main.overview.hide()" >/dev/null
 js "$KEYS.forEach(k => $SETTINGS.reset(k))" >/dev/null
 sleep 1.5
 check "extension is active" "Main.extensionManager.lookup('$UUID').state === 1"
+check "Super key option is on by default" "$SETTINGS.get_boolean('super-key-opens-popup')"
 
 key KEY_LEFTMETA KEY_SLASH
 sleep 0.6
@@ -152,11 +153,11 @@ sleep 1.5
 check "Super key option: Super twice opens the overview" "!$POPUP.isOpen && Main.overview.visible"
 js "Main.overview.hide()" >/dev/null
 sleep 1.5
-js "$SETTINGS.reset('super-key-opens-popup')" >/dev/null
+js "$SETTINGS.set_boolean('super-key-opens-popup', false)" >/dev/null
 
 key KEY_LEFTMETA
 sleep 1.5
-check "Super opens the regular overview again" "Main.overview.visible"
+check "with the option off, Super opens the regular overview" "Main.overview.visible"
 "$VM_CMD" type set
 sleep 1
 check "type-to-search still works in the overview" "Main.overview.searchEntry.text === 'set'"

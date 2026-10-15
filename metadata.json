@@ -1,8 +1,11 @@
 {
-  "uuid": "minimal-activities-overview@g-freeks.github.io",
-  "name": "Minimal Activities Overview",
-  "description": "A centered popup with the overview's search bar and dash, without zooming out to the window overview. Open it with Super+/, or optionally with the Super key instead of the overview. It can also open typed or pasted paths, and run commands with “run …”.",
-  "shell-version": ["49", "50"],
-  "settings-schema": "org.gnome.shell.extensions.minimal-activities-overview",
-  "url": "https://github.com/g-freeks/gnome-minimal-activities-overview"
+  "uuid": "minimal-launcher@g-freeks.github.io",
+  "name": "Minimal Launcher",
+  "description": "low-distraction GNOME application launcher",
+  "shell-version": [
+    "49",
+    "50"
+  ],
+  "settings-schema": "org.gnome.shell.extensions.minimal-launcher",
+  "url": "https://github.com/g-freeks/gnome-minimal-launcher"
 }

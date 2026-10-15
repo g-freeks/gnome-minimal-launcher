@@ -1,4 +1,4 @@
-UUID := minimal-activities-overview@g-freeks.github.io
+UUID := minimal-launcher@g-freeks.github.io
 ZIP := $(UUID).shell-extension.zip
 
 .PHONY: schemas pack install enable disable clean logs lint check

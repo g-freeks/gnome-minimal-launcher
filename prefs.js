@@ -175,7 +175,7 @@ class ShortcutRow extends Adw.ActionRow {
     }
 });
 
-export default class MinimalActivitiesOverviewPreferences extends ExtensionPreferences {
+export default class MinimalLauncherPreferences extends ExtensionPreferences {
     fillPreferencesWindow(window) {
         const settings = this.getSettings();
         window.set_default_size(640, 720);

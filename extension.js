@@ -10,12 +10,12 @@ import Shell from 'gi://Shell';
 import {Extension} from 'resource:///org/gnome/shell/extensions/extension.js';
 import * as Main from 'resource:///org/gnome/shell/ui/main.js';
 
-import {OverviewPopup} from './popup.js';
+import {LauncherPopup} from './popup.js';
 
-export default class MinimalActivitiesOverviewExtension extends Extension {
+export default class MinimalLauncherExtension extends Extension {
     enable() {
         this._settings = this.getSettings();
-        this._popup = new OverviewPopup(this._settings);
+        this._popup = new LauncherPopup(this._settings);
         this._superKeyHandlerId = 0;
         this._lastSuperKeyTime = 0;
 

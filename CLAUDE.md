@@ -2,7 +2,7 @@
 
 This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
 
-GNOME Shell extension (UUID `minimal-activities-overview@g-freeks.github.io`). It opens a centered popup with the overview's search bar on top and the dash at the bottom, so you get search, favorites and running apps without zooming out to the window overview. The popup is toggled by its own shortcut, `toggle-popup`. The default is `<Super>slash`, chosen because it's free in a stock GNOME 49/50 and, as a Super combination, doesn't take a shortcut away from apps (Ctrl+Space would steal IDE completion). When two bindings collide, GNOME's wins, so the prefs window detects conflicts and warns. Optionally, the Super key alone opens the popup instead of the overview.
+GNOME Shell extension "Minimal Launcher" (UUID `minimal-launcher@g-freeks.github.io`, repo `g-freeks/gnome-minimal-launcher`; formerly "Minimal Activities Overview"). It's a low-distraction application launcher: it opens a centered popup with the overview's search bar on top and the dash at the bottom, so you get search, favorites and running apps without zooming out to the window overview. The popup is toggled by its own shortcut, `toggle-popup`. The default is `<Super>slash`, chosen because it's free in a stock GNOME 49/50 and, as a Super combination, doesn't take a shortcut away from apps (Ctrl+Space would steal IDE completion). When two bindings collide, GNOME's wins, so the prefs window detects conflicts and warns. By default (`super-key-opens-popup`), the Super key alone also opens the popup instead of the overview, and pressing Super twice opens the overview.
 
 It supports **GNOME Shell 49 and 50** from one codebase and one zip (`shell-version` in `metadata.json`). It runs on Wayland and uses ES modules (no `imports.*`, so nothing older than 45 is possible).
 
@@ -75,13 +75,13 @@ Code must meet https://gjs.guide/extensions/review-guidelines/review-guidelines.
 
 ## Architecture
 
-- `extension.js` registers the keybinding and owns one `OverviewPopup` for the extension's lifetime. It also implements the `super-key-opens-popup` option:
+- `extension.js` registers the keybinding and owns one `LauncherPopup` for the extension's lifetime. It also implements the `super-key-opens-popup` option:
   - A lone Super press is mutter's `overlay-key` signal, not a keybinding.
   - The overview's handler (connected by `ControlsManager`) can't be singled out, so *all* existing `overlay-key` handlers are blocked with `GObject.signal_handlers_block_matched` while the option is on, and ours is connected. On release, ours is disconnected first, then the others are unblocked; that order avoids "handler not blocked" warnings.
   - `_onSuperKey` treats two presses within Clutter's double-click time as "go to the overview": the second press closes the popup and calls `Main.overview.show()`.
   - The shell only allows `overlay-key` in `NORMAL | OVERVIEW` action modes, so `POPUP` is added via `Main.wm.allowKeybinding`, which lets Super also close the popup. The previous value is restored from the private `Main.wm._allowedKeybindings`.
 - `providers/` holds the popup's own search providers. The popup registers them only on *its* `SearchController`; the regular overview doesn't get them.
-  - `index.js` lists each provider with the boolean setting that enables it, and `OverviewPopup._syncSearchProviders` adds or removes them live. To add a provider, write the module, add a line to `index.js`, add a key to the schema and a row to `prefs.js`, and add checks to `vm/smoke-test.sh`.
+  - `index.js` lists each provider with the boolean setting that enables it, and `LauncherPopup._syncSearchProviders` adds or removes them live. To add a provider, write the module, add a line to `index.js`, add a key to the schema and a row to `prefs.js`, and add checks to `vm/smoke-test.sh`.
   - Providers implement the shell's in-process provider interface (`getInitialResultSet`, `getSubsearchResultSet`, `getResultMetas`, `filterResults`, `activateResult`, `launchSearch`, `id`, `appInfo`, `isRemoteProvider`, `canLaunchSearch`), plus `destroy()`. Optionally they also implement `canComplete`/`complete`, which the popup calls on Tab in the entry.
   - Result ids must be unique per content (the uri or command is part of the id), because the shell caches result widgets by id.
   - `appInfo` is a synthetic `GioUnix.DesktopAppInfo` (`common.js`). It gives the header a name and icon, and the shell only uses the list layout for providers with an `appInfo`.
@@ -98,7 +98,7 @@ Code must meet https://gjs.guide/extensions/review-guidelines/review-guidelines.
   - Reset buttons compare the value to the schema default.
   - `Adw.ShortcutLabel` needs libadwaita 1.8, which GNOME 49 has.
   - The footer shows `version-name` (stamped by CI on tags), or else the numeric `version` extensions.gnome.org adds, or else "Development version". It also links to `${metadata.url}/issues`. The prefs process gets metadata from the shell, so metadata changes only show after a shell restart.
-- `popup.js` holds `OverviewPopup`, which is the whole feature. It is a full-monitor dimmed backdrop (added with `Main.layoutManager.addChrome`; its colour comes from `backdrop-transparency` as an inline style) holding a column with two parts: a styled panel (search entry + results), and the dash attached below it at the same width. The dash keeps its own themed background, stretched via `x_expand` on the dash and its `_background`, plus a CSS override of the theme's `#dash` side padding.
+- `popup.js` holds `LauncherPopup`, which is the whole feature. It is a full-monitor dimmed backdrop (added with `Main.layoutManager.addChrome`; its colour comes from `backdrop-transparency` as an inline style) holding a column with two parts: a styled panel (search entry + results), and the dash attached below it at the same width. The dash keeps its own themed background, stretched via `x_expand` on the dash and its `_background`, plus a CSS override of the theme's `#dash` side padding.
   - With `dash-at-bottom`, `_placeDash` reparents the dash from the column to the backdrop. Two `AlignConstraint`s keep it bottom-centred as its size changes, and `translation_y` lifts it above anything below the work area. While the popup is open it holds a `Main.pushModal` grab in `ActionMode.POPUP`.
 
 The popup creates **its own instances** of the shell's `Dash` (`ui/dash.js`) and `SearchController` (`ui/searchController.js`). The search entry is built the same way `ControlsManager` builds it in `ui/overviewControls.js`, so the theme's overview styles apply. These classes assume they live inside `Main.overview`, and that assumption is patched in three places:

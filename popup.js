@@ -89,11 +89,11 @@ function createSearchController(entry, showAppsButton) {
     return [controller, handlers.filter(h => !isOverviewHandler(h))];
 }
 
-export const OverviewPopup = GObject.registerClass(
-class OverviewPopup extends St.Widget {
+export const LauncherPopup = GObject.registerClass(
+class LauncherPopup extends St.Widget {
     _init(settings) {
         super._init({
-            style_class: 'minimal-overview-backdrop',
+            style_class: 'minimal-launcher-backdrop',
             reactive: true,
             visible: false,
         });
@@ -109,13 +109,13 @@ class OverviewPopup extends St.Widget {
         // Column: search panel (entry + results) with the dash attached
         // below it as a separate box of the same width.
         this._column = new St.BoxLayout({
-            style_class: 'minimal-overview-column',
+            style_class: 'minimal-launcher-column',
             orientation: Clutter.Orientation.VERTICAL,
         });
         this.add_child(this._column);
 
         this._panel = new St.BoxLayout({
-            style_class: 'minimal-overview-panel',
+            style_class: 'minimal-launcher-panel',
             orientation: Clutter.Orientation.VERTICAL,
         });
         this._column.add_child(this._panel);

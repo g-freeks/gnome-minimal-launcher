@@ -133,7 +133,7 @@ async function listEntries(folder, prefix, {caseSensitive, cancellable}) {
  */
 export class PathSearchProvider {
     constructor() {
-        this.id = 'minimal-activities-overview-paths';
+        this.id = 'minimal-launcher-paths';
         this.appInfo = createProviderAppInfo(_('Paths'), 'folder');
         this.isRemoteProvider = false;
         this.canLaunchSearch = false;
