@@ -178,7 +178,7 @@ class ShortcutRow extends Adw.ActionRow {
 export default class MinimalActivitiesOverviewPreferences extends ExtensionPreferences {
     fillPreferencesWindow(window) {
         const settings = this.getSettings();
-        window.set_default_size(640, 540);
+        window.set_default_size(640, 720);
         const page = new Adw.PreferencesPage();
         window.add(page);
 
@@ -209,6 +209,25 @@ export default class MinimalActivitiesOverviewPreferences extends ExtensionPrefe
         settings.bind('dash-at-bottom', dashRow, 'active',
             Gio.SettingsBindFlags.DEFAULT);
         appearanceGroup.add(dashRow);
+
+        const searchGroup = new Adw.PreferencesGroup({title: _('Search')});
+        page.add(searchGroup);
+
+        const pathRow = new Adw.SwitchRow({
+            title: _('Open Paths'),
+            subtitle: _('Type or paste a path starting with / or ~ to open it or show it in Files. Tab completes the path.'),
+        });
+        settings.bind('enable-path-search', pathRow, 'active',
+            Gio.SettingsBindFlags.DEFAULT);
+        searchGroup.add(pathRow);
+
+        const runRow = new Adw.SwitchRow({
+            title: _('Run Commands'),
+            subtitle: _('Type “run” followed by a command to run it in the background. A failure is shown as a notification.'),
+        });
+        settings.bind('enable-run-command', runRow, 'active',
+            Gio.SettingsBindFlags.DEFAULT);
+        searchGroup.add(runRow);
 
         page.add(this._createFooter());
     }

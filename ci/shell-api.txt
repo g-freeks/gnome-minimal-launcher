@@ -32,3 +32,15 @@ ui/overviewControls.js	global\.display\.connectObject\(.overlay-key.
 ui/windowManager.js	^    allowKeybinding\(name, modes\)
 ui/windowManager.js	this\._allowedKeybindings = \{\}
 ui/main.js	wm\.allowKeybinding\(.overlay-key.
+ui/searchController.js	^    addProvider\(provider\)
+ui/searchController.js	^    removeProvider\(provider\)
+ui/search.js	this\._providers = \[\]
+ui/search.js	this\._content = new MaxWidthBox
+ui/search.js	if \(provider\.appInfo\)
+ui/search.js	provider\.getInitialResultSet\(
+ui/search.js	provider\.getSubsearchResultSet\(
+ui/search.js	this\.provider\.getResultMetas\(
+ui/search.js	this\.provider\.filterResults\(
+ui/search.js	this\.provider\.activateResult\(
+ui/search.js	provider\.launchSearch\(
+ui/main.js	^export function notify\(msg, details

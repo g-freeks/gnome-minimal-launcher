@@ -16,6 +16,8 @@ Press <kbd>Super</kbd>+<kbd>/</kbd> and the popup appears over your current wind
   - <kbd>Tab</kbd> cycles through the results.
   - <kbd>Esc</kbd> clears the search, and closes the popup once the search bar is empty.
 - **Closes when you're done.** Launching an app, choosing a result or clicking outside the popup closes it.
+- **Open paths.** Type or paste a path starting with `/` or `~` (or a `file://` URI). Open it, or show it in Files. Matching files and folders are suggested, and <kbd>Tab</kbd> completes the path like a terminal does.
+- **Run commands.** Type `run` followed by a command, for example `run code ~/project`, and press <kbd>Enter</kbd>. It runs in the background through `/bin/sh` from your home folder. If it fails, a notification shows the end of its error output.
 - **App grid hand-off.** The dash's *Show Apps* button opens the regular overview's app grid.
 - **Can replace the overview on Super.** Optionally, the <kbd>Super</kbd> key opens the popup instead of the overview, and pressing it twice opens the overview.
 
@@ -48,6 +50,7 @@ Open the settings from the Extensions app, or run `gnome-extensions prefs minima
 - **Use the Super key.** Pressing <kbd>Super</kbd> on its own opens the popup instead of the overview. Pressing <kbd>Super</kbd> twice quickly opens the overview. The Activities button, the hot corner and <kbd>Super</kbd>+<kbd>A</kbd> also still open it.
 - **Backdrop transparency.** How much of the desktop shows through behind the popup. Default: 65%.
 - **Dock at bottom of screen.** Shows the dock at the bottom edge, like the overview does, instead of attached below the search bar.
+- **Open paths / Run commands.** Turn the two search additions on or off. Both are on by default.
 
 The bottom of the settings window shows the installed version and links to the issue tracker.
 

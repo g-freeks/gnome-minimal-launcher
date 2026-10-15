@@ -21,5 +21,15 @@
       <summary>Show the dash at the bottom of the screen</summary>
       <description>Instead of attached below the search panel.</description>
     </key>
+    <key name="enable-path-search" type="b">
+      <default>true</default>
+      <summary>Open typed or pasted paths</summary>
+      <description>Search text starting with /, ~ or file:// offers to open the path or show it in Files, suggests matching entries, and completes with Tab.</description>
+    </key>
+    <key name="enable-run-command" type="b">
+      <default>true</default>
+      <summary>Run commands</summary>
+      <description>Search text starting with “run ” offers to run the rest as a command. Failures are shown as a notification.</description>
+    </key>
   </schema>
 </schemalist>

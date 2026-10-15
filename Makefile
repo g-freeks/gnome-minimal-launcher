@@ -14,7 +14,7 @@ check: lint schemas
 	ci/check-shell-api.sh
 
 pack:
-	gnome-extensions pack --force --extra-source=popup.js .
+	gnome-extensions pack --force --extra-source=popup.js --extra-source=providers .
 
 install: pack
 	gnome-extensions install --force $(ZIP)

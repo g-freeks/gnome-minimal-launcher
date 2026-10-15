@@ -15,7 +15,7 @@ make install   # pack + install into the *host* session (only for real use)
 make vm-reload # compile schemas + restart the dev VM's session (the normal edit/test loop)
 ```
 
-There is no test suite. `npm run lint` uses ESLint 10 with `eslint.config.js`; npm is dev tooling only, and the extension has no dependencies. Every new source file must be added to `--extra-source` in the Makefile's `pack` target, or it won't be shipped. Under Wayland the running shell **cannot reload extension code**, so test in the development VM below rather than on the host session.
+There is no test suite. `npm run lint` uses ESLint 10 with `eslint.config.js`; npm is dev tooling only, and the extension has no dependencies. Every new top-level source file must be added to `--extra-source` in the Makefile's `pack` target, or it won't be shipped (`providers/` is included as a whole). Under Wayland the running shell **cannot reload extension code**, so test in the development VM below rather than on the host session.
 
 ### Supporting several GNOME versions
 
@@ -80,6 +80,17 @@ Code must meet https://gjs.guide/extensions/review-guidelines/review-guidelines.
   - The overview's handler (connected by `ControlsManager`) can't be singled out, so *all* existing `overlay-key` handlers are blocked with `GObject.signal_handlers_block_matched` while the option is on, and ours is connected. On release, ours is disconnected first, then the others are unblocked; that order avoids "handler not blocked" warnings.
   - `_onSuperKey` treats two presses within Clutter's double-click time as "go to the overview": the second press closes the popup and calls `Main.overview.show()`.
   - The shell only allows `overlay-key` in `NORMAL | OVERVIEW` action modes, so `POPUP` is added via `Main.wm.allowKeybinding`, which lets Super also close the popup. The previous value is restored from the private `Main.wm._allowedKeybindings`.
+- `providers/` holds the popup's own search providers. The popup registers them only on *its* `SearchController`; the regular overview doesn't get them.
+  - `index.js` lists each provider with the boolean setting that enables it, and `OverviewPopup._syncSearchProviders` adds or removes them live. To add a provider, write the module, add a line to `index.js`, add a key to the schema and a row to `prefs.js`, and add checks to `vm/smoke-test.sh`.
+  - Providers implement the shell's in-process provider interface (`getInitialResultSet`, `getSubsearchResultSet`, `getResultMetas`, `filterResults`, `activateResult`, `launchSearch`, `id`, `appInfo`, `isRemoteProvider`, `canLaunchSearch`), plus `destroy()`. Optionally they also implement `canComplete`/`complete`, which the popup calls on Tab in the entry.
+  - Result ids must be unique per content (the uri or command is part of the id), because the shell caches result widgets by id.
+  - `appInfo` is a synthetic `GioUnix.DesktopAppInfo` (`common.js`). It gives the header a name and icon, and the shell only uses the list layout for providers with an `appInfo`.
+  - `_addSearchProvider` moves ours to the front of the private `SearchResultsView._providers` and `_content`, so a path or command is the default result for Enter.
+  - `pathProvider.js`: absolute, `~/…` and `file://` text. It offers open (the default app), "Show in Files" (`org.freedesktop.FileManager1.ShowItems`) and case-insensitive suggestions from the folder. All file access is async and cancellable, and at most 2000 folder entries are read.
+  - `runProvider.js`: `run <command>` runs `/bin/sh -c` via `Shell.util_spawn_async_with_fds`, which restores the shell's raised file-descriptor limit for the child, like `misc/util.js` `trySpawn` does. It also gets its own systemd scope.
+    - stderr goes to a `tail -c 4096` process, not to the shell. Long-running commands never fill a buffer in gnome-shell, and disabling the extension (screen lock) doesn't close a pipe under them.
+    - A non-zero exit shows `Main.notify` with the tail of stderr.
+    - On `destroy()` the child watches are swapped for no-op ones, so the processes still get reaped.
 - `prefs.js` is the GTK4/libadwaita settings window. It runs in a separate process, so no shell imports.
   - `ShortcutRow` captures a new accelerator in an `Adw.AlertDialog` with a capture-phase key controller. Esc cancels, Backspace disables, and a modifier is required (except F-keys).
   - Combinations the compositor already grabs never reach the dialog.

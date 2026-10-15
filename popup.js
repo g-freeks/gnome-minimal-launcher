@@ -14,6 +14,8 @@ import * as Layout from 'resource:///org/gnome/shell/ui/layout.js';
 import * as Main from 'resource:///org/gnome/shell/ui/main.js';
 import {SearchController} from 'resource:///org/gnome/shell/ui/searchController.js';
 
+import {SEARCH_PROVIDERS} from './providers/index.js';
+
 // Fractions of the primary monitor
 const PANEL_TOP = 0.15;
 const PANEL_WIDTH = 0.5;
@@ -101,6 +103,8 @@ class OverviewPopup extends St.Widget {
         this._grab = null;
         this._lastResultFocus = null;
         this._searchHandlers = [];
+        this._searchProviders = new Map();
+        this._completionCancellable = null;
 
         // Column: search panel (entry + results) with the dash attached
         // below it as a separate box of the same width.
@@ -171,6 +175,12 @@ class OverviewPopup extends St.Widget {
             }, this);
         this._updateBackdrop();
 
+        for (const {settingsKey} of SEARCH_PROVIDERS) {
+            this._settings.connectObject(`changed::${settingsKey}`,
+                () => this._syncSearchProviders(), this);
+        }
+        this._syncSearchProviders();
+
         this._searchController.connectObject('notify::search-active',
             () => this._onSearchChanged(), this);
 
@@ -227,6 +237,7 @@ class OverviewPopup extends St.Widget {
         Main.popModal(this._grab);
         this._grab = null;
         this._setLastResultFocus(null);
+        this._completionCancellable?.cancel();
 
         // Hiding unmaps the SearchController, which resets the search.
         this.remove_all_transitions();
@@ -244,6 +255,63 @@ class OverviewPopup extends St.Widget {
     _unpatchOverview() {
         delete Main.overview.hide;
         delete Main.overview.toggle;
+    }
+
+    _syncSearchProviders() {
+        for (const {settingsKey, Provider} of SEARCH_PROVIDERS) {
+            const enabled = this._settings.get_boolean(settingsKey);
+            const provider = this._searchProviders.get(settingsKey);
+            if (enabled && !provider) {
+                const newProvider = new Provider();
+                this._addSearchProvider(newProvider);
+                this._searchProviders.set(settingsKey, newProvider);
+            } else if (!enabled && provider) {
+                this._removeSearchProvider(provider);
+                this._searchProviders.delete(settingsKey);
+            }
+        }
+    }
+
+    _addSearchProvider(provider) {
+        this._searchController.addProvider(provider);
+
+        // List it above the shell's providers, so a path or command is the
+        // default result for Enter
+        const results = this._searchController._searchResults;
+        const providers = results._providers;
+        if (!provider.display)
+            return;
+        providers.splice(providers.indexOf(provider), 1);
+        providers.unshift(provider);
+        results._content.set_child_at_index(provider.display, 0);
+    }
+
+    _removeSearchProvider(provider) {
+        this._searchController.removeProvider(provider);
+        provider.destroy();
+    }
+
+    _completeSearch() {
+        const text = this._entry.text;
+        const provider = [...this._searchProviders.values()]
+            .find(p => p.canComplete?.(text));
+        if (!provider)
+            return false;
+
+        this._completionCancellable?.cancel();
+        const cancellable = new Gio.Cancellable();
+        this._completionCancellable = cancellable;
+
+        provider.complete(text, cancellable).then(completed => {
+            if (!completed || cancellable.is_cancelled() || this._entry.text !== text)
+                return;
+            this._entry.text = completed;
+            this._entry.clutter_text.set_cursor_position(-1);
+        }).catch(e => {
+            if (!cancellable.is_cancelled())
+                logError(e, 'Path completion failed');
+        });
+        return true;
     }
 
     _updateBackdrop() {
@@ -312,6 +380,11 @@ class OverviewPopup extends St.Widget {
             // swallow Escape even when the entry is already empty
             this._clearOrClose();
             return Clutter.EVENT_STOP;
+        case Clutter.KEY_Tab:
+            // Completion where a provider offers it, else into the results
+            return this._completeSearch()
+                ? Clutter.EVENT_STOP
+                : Clutter.EVENT_PROPAGATE;
         case Clutter.KEY_Down:
             // While searching, SearchController moves Down into the results.
             // Otherwise St.Entry would open its copy/paste menu.
@@ -415,6 +488,9 @@ class OverviewPopup extends St.Widget {
 
     _onDestroy() {
         this.close();
+        for (const provider of this._searchProviders.values())
+            this._removeSearchProvider(provider);
+        this._searchProviders.clear();
         for (const [object, , id] of this._searchHandlers)
             object.disconnect(id);
         this._searchHandlers = [];

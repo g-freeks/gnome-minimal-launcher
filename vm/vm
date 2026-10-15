@@ -78,6 +78,8 @@ type_text() {
         '-') "${VIRSH[@]}" send-key $VM KEY_MINUS ;;
         '.') "${VIRSH[@]}" send-key $VM KEY_DOT ;;
         '/') "${VIRSH[@]}" send-key $VM KEY_SLASH ;;
+        '~') "${VIRSH[@]}" send-key $VM KEY_LEFTSHIFT KEY_GRAVE ;;
+        '_') "${VIRSH[@]}" send-key $VM KEY_LEFTSHIFT KEY_MINUS ;;
         *) echo "type: unsupported character '$c'" >&2; return 1 ;;
         esac >/dev/null
     done

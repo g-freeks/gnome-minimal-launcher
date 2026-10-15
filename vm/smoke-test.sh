@@ -9,7 +9,7 @@ source "$(dirname "$0")/common.sh"
 UUID=$(grep -oP '"uuid":\s*"\K[^"]+' "$REPO/metadata.json")
 POPUP="Main.extensionManager.lookup('$UUID').stateObj._popup"
 SETTINGS="Main.extensionManager.lookup('$UUID').stateObj._settings"
-KEYS="['toggle-popup', 'super-key-opens-popup', 'backdrop-transparency', 'dash-at-bottom']"
+KEYS="['toggle-popup', 'super-key-opens-popup', 'backdrop-transparency', 'dash-at-bottom', 'enable-path-search', 'enable-run-command']"
 
 failures=0
 js() { "$VM_CMD" eval "$1" | sed -E "s/^\(true, '\"?(.*)\"?'\)$/\1/" | sed -E 's/"$//'; }
@@ -69,6 +69,57 @@ key KEY_ENTER
 sleep 3
 check "Enter launches the top result and closes" "!$POPUP.isOpen && global.display.focus_window?.title === 'Calculator'"
 js "global.display.focus_window?.delete(global.get_current_time())" >/dev/null
+
+# Search providers
+close_window() { js "global.display.focus_window?.delete(global.get_current_time())" >/dev/null; sleep 1; }
+notifications="Main.messageTray.getSources().flatMap(s => s.notifications).map(n => n.title + ' ' + n.body).join('|')"
+
+key KEY_LEFTMETA KEY_SLASH
+sleep 0.6
+"$VM_CMD" type /home/dev/repo/READ
+sleep 1
+key KEY_TAB
+sleep 0.5
+check "paths: Tab completes the path" "$POPUP._entry.text === '/home/dev/repo/README.md'"
+sleep 1.5
+"$VM_CMD" screenshot "$STATE/smoke-$GNOME-path.png" >/dev/null
+key KEY_ENTER
+sleep 3
+check "paths: Enter opens the file" "global.display.focus_window?.title.includes('README.md') && !$POPUP.isOpen"
+close_window
+
+key KEY_LEFTMETA KEY_SLASH
+sleep 0.6
+"$VM_CMD" type '~/repo'
+sleep 2
+key KEY_DOWN
+check "paths: second result is Show in Files" "global.stage.key_focus?.metaInfo?.name === 'Show in Files'"
+key KEY_ENTER
+sleep 3
+check "paths: Show in Files opens the file manager" "global.display.focus_window?.get_wm_class() === 'org.gnome.Nautilus'"
+close_window
+
+"$VM_CMD" ssh rm -f /tmp/smoke-run
+key KEY_LEFTMETA KEY_SLASH
+sleep 0.6
+"$VM_CMD" type 'run touch /tmp/smoke-run'
+sleep 1.5
+key KEY_ENTER
+sleep 1.5
+check "run: the command ran" "$("$VM_CMD" ssh test -e /tmp/smoke-run && echo true || echo false)"
+
+key KEY_LEFTMETA KEY_SLASH
+sleep 0.6
+"$VM_CMD" type 'run ls /no-such-dir'
+sleep 1.5
+key KEY_ENTER
+sleep 2
+check "run: a failure shows a notification with the error" "($notifications).includes('No such file or directory')"
+
+js "$SETTINGS.set_boolean('enable-path-search', false); $SETTINGS.set_boolean('enable-run-command', false)" >/dev/null
+check "providers can be switched off" "$POPUP._searchProviders.size === 0"
+js "$SETTINGS.reset('enable-path-search'); $SETTINGS.reset('enable-run-command')" >/dev/null
+check "and on again" "$POPUP._searchProviders.size === 2"
 
 js "$SETTINGS.set_int('backdrop-transparency', 20)" >/dev/null
 check "backdrop transparency setting applies" "$POPUP.style.includes('0.8)')"
