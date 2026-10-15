@@ -228,6 +228,23 @@ export default class MinimalLauncherPreferences extends ExtensionPreferences {
             subtitle: _('From the top of the screen (0%) to as low as the search results still fit (100%)'),
         }));
 
+        const [minWidth, maxWidth] = settings.settings_schema
+            .get_key('search-min-width').get_range().recursiveUnpack()[1];
+        const resultsWidthRow = new Adw.SpinRow({
+            title: _('Search Results Width'),
+            subtitle: _('Minimum width of the search bar while it shows results, in pixels'),
+            adjustment: new Gtk.Adjustment({
+                lower: minWidth,
+                upper: maxWidth,
+                step_increment: 20,
+                page_increment: 100,
+            }),
+        });
+        settings.bind('search-min-width', resultsWidthRow.adjustment, 'value',
+            Gio.SettingsBindFlags.DEFAULT);
+        resultsWidthRow.add_suffix(createResetButton(settings, 'search-min-width'));
+        appearanceGroup.add(resultsWidthRow);
+
         const dockGroup = new Adw.PreferencesGroup({title: _('Dock')});
         page.add(dockGroup);
 

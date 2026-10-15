@@ -9,7 +9,7 @@ source "$(dirname "$0")/common.sh"
 UUID=$(grep -oP '"uuid":\s*"\K[^"]+' "$REPO/metadata.json")
 POPUP="Main.extensionManager.lookup('$UUID').stateObj._popup"
 SETTINGS="Main.extensionManager.lookup('$UUID').stateObj._settings"
-KEYS="['toggle-popup', 'super-key-opens-popup', 'backdrop-transparency', 'dash-at-bottom', 'enable-path-search', 'enable-run-command', 'vertical-position', 'show-dash', 'dash-icon-scale', 'show-preview']"
+KEYS="['toggle-popup', 'super-key-opens-popup', 'backdrop-transparency', 'dash-at-bottom', 'enable-path-search', 'enable-run-command', 'vertical-position', 'show-dash', 'dash-icon-scale', 'show-preview', 'search-min-width']"
 
 failures=0
 # Give the shell a moment: a key press right as a window closes can get lost
@@ -40,6 +40,7 @@ check "Super+/ opens the popup" "$POPUP.isOpen"
 check "search entry has focus" "$focus_name === 'entry'"
 check "dash is as wide as the panel" "$POPUP._dash.width === $POPUP._panel.width"
 check "idle: entry fills the panel and is vertically centred" "(([, py]) => (([, ey]) => ey - py === py + $POPUP._panel.height - ey - $POPUP._entry.height)($POPUP._entry.get_transformed_position()))($POPUP._panel.get_transformed_position()) && $POPUP._entry.width > $POPUP._panel.width * 0.9"
+check "idle: panel padded and rounded like the dash" "[0, 3].every(side => $POPUP._panel.get_theme_node().get_padding(side) === $POPUP._dash._background.get_theme_node().get_padding(side)) && $POPUP._panel.get_theme_node().get_border_radius(0) === $POPUP._dash._background.get_theme_node().get_border_radius(0)"
 check "launcher is centred horizontally" "Math.abs($POPUP._column.x + $POPUP._column.width / 2 - Main.layoutManager.primaryMonitor.width / 2) <= 1"
 "$VM_CMD" screenshot "$STATE/smoke-$GNOME-idle.png" >/dev/null
 
@@ -51,10 +52,18 @@ check "Right moves along the dash" "$focus_name !== '$first'"
 key KEY_UP
 check "Up returns to the entry" "$focus_name === 'entry'"
 
+idle_entry=$(js "$POPUP._entry.width")
+idle_y=$(js "$POPUP._entry.get_transformed_position()[1]")
 "$VM_CMD" type settings
 sleep 2.5
 check "typing starts a search" "$POPUP._searchController.searchActive"
-check "searching: entry back to its own width" "$POPUP._entry.width < $POPUP._panel.width * 0.9"
+check "searching: entry keeps its idle width and place" "$POPUP._entry.width === $idle_entry && $POPUP._entry.get_transformed_position()[1] === $idle_y"
+check "searching: results have the minimum width" "$POPUP._panel.width >= 720"
+js "$SETTINGS.set_int('search-min-width', 1000)" >/dev/null
+check "search results width setting applies live" "$POPUP._panel.width >= 1000 && $POPUP._dash.width === $POPUP._panel.width"
+js "$SETTINGS.set_int('search-min-width', 3840)" >/dev/null
+check "search results never get wider than the screen" "$POPUP._column.width < Main.layoutManager.primaryMonitor.width"
+js "$SETTINGS.reset('search-min-width')" >/dev/null
 "$VM_CMD" screenshot "$STATE/smoke-$GNOME-search.png" >/dev/null
 key KEY_DOWN
 a=$(js "$focus_name")
@@ -62,6 +71,8 @@ key KEY_DOWN
 b=$(js "$focus_name")
 check "Down moves through results ($a -> $b)" "'$a' !== '$b'"
 key KEY_ESC
+sleep 0.3
+check "clearing the search shrinks the panel back" "$POPUP._entry.width === $idle_entry && !$POPUP._panel.natural_width_set && !$POPUP._panel.natural_height_set"
 check "Esc in results clears the search, keeps it open" "$POPUP.isOpen && $POPUP._entry.text === '' && $focus_name === 'entry'"
 key KEY_ESC
 check "Esc on an empty entry closes" "!$POPUP.isOpen && Main.modalCount === 0"

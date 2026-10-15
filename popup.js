@@ -23,6 +23,7 @@ const DASH_MAX_HEIGHT = 0.12;
 const DASH_BOTTOM_MARGIN = 0.02;
 
 const FADE_TIME = 120;
+const RESIZE_TIME = 200;
 
 // [direction, wrap around], as St.FocusManager maps them
 const NAVIGATION_KEYS = {
@@ -219,6 +220,7 @@ class LauncherPopup extends St.Widget {
                 this._adjustDashIconSize();
             },
             'changed::show-preview', () => this._syncPreview(),
+            'changed::search-min-width', () => this._onSearchChanged(),
             this);
         this._dash.visible = this._settings.get_boolean('show-dash');
         // The dash only knows its final height once its icons are sized
@@ -294,6 +296,7 @@ class LauncherPopup extends St.Widget {
         // search itself, hiding result widgets halfway through unmapping
         // (a Clutter assertion). Reset it first, while still modal.
         this._searchController.reset();
+        this._setIdleLayout();
 
         this._unpatchOverview();
         Main.popModal(this._grab);
@@ -462,28 +465,69 @@ class LauncherPopup extends St.Widget {
         this._column.y = workTop + Math.round(freeSpace * position);
     }
 
+    // Idle, the panel is just the entry, filling it. While searching, the
+    // panel grows around the entry (which keeps its idle width) to make room
+    // for the results; the change of size is animated both ways.
     _onSearchChanged() {
         const {searchActive} = this._searchController;
-        this._searchController.visible = searchActive;
-        // Just the entry when idle (compact, filling the panel), fixed
-        // height while showing results
-        this._panel.height = searchActive ? this._searchHeight : -1;
-        if (searchActive)
-            this._panel.remove_style_class_name('compact');
-        else
-            this._panel.add_style_class_name('compact');
-        this._entryBin.x_align = searchActive
-            ? Clutter.ActorAlign.CENTER
-            : Clutter.ActorAlign.FILL;
-        this._entry.x_expand = !searchActive;
+        const wasSearching = this._entry.natural_width_set;
 
-        // With the dash at the bottom the panel is only as wide as the entry,
-        // too narrow for list results; give them at least the dash's width
-        const dashAtBottom = this._dash.get_parent() === this;
-        if (searchActive && dashAtBottom && this._dash.visible)
-            this._panel.min_width = this._dash.width;
-        else
-            this._panel.min_width_set = false;
+        if (searchActive) {
+            if (!wasSearching) {
+                // The allocation: with a relayout pending, `width` would
+                // return the preferred width instead
+                const {allocation} = this._panel;
+                this._idleSize = [allocation.get_width(), allocation.get_height()];
+                this._entry.width = this._entry.allocation.get_width();
+                this._entry.x_expand = false;
+                this._entryBin.x_align = Clutter.ActorAlign.CENTER;
+            }
+            this._searchController.visible = true;
+            this._resizePanel(Math.max(this._idleSize[0], this._searchMinWidth()),
+                this._searchHeight);
+        } else if (wasSearching) {
+            this._searchController.visible = false;
+            this._resizePanel(...this._idleSize, () => this._setIdleLayout());
+        } else {
+            this._setIdleLayout();
+        }
+    }
+
+    _setIdleLayout() {
+        this._searchController.visible = false;
+        this._panel.remove_all_transitions();
+        this._panel.set_size(-1, -1);
+        this._entry.width = -1;
+        this._entry.x_expand = true;
+        this._entryBin.x_align = Clutter.ActorAlign.FILL;
+    }
+
+    _resizePanel(width, height, onComplete = () => {}) {
+        if (!this._panel.mapped) {
+            this._panel.set_size(width, height);
+            onComplete();
+            return;
+        }
+        this._panel.ease({
+            width,
+            height,
+            duration: RESIZE_TIME,
+            mode: Clutter.AnimationMode.EASE_OUT_QUAD,
+            onComplete,
+        });
+    }
+
+    // The entry alone is too narrow for list results. With the dash at the
+    // bottom, the results also get at least the dash's width.
+    _searchMinWidth() {
+        const {scaleFactor} = St.ThemeContext.get_for_stage(global.stage);
+        let minWidth = this._settings.get_int('search-min-width') * scaleFactor;
+        if (this._dash.get_parent() === this && this._dash.visible)
+            minWidth = Math.max(minWidth, this._dash.width);
+        const monitor = Main.layoutManager.primaryMonitor;
+        if (monitor)
+            minWidth = Math.min(minWidth, monitor.width * DASH_MAX_WIDTH);
+        return minWidth;
     }
 
     _onEntryKeyPress(text, event) {
@@ -522,6 +566,7 @@ class LauncherPopup extends St.Widget {
             return;
         }
         this._searchController.reset();
+        this._setIdleLayout();
         this._entry.grab_key_focus();
     }
 

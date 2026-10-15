@@ -22,6 +22,12 @@
       <summary>Vertical position of the launcher, in percent</summary>
       <description>0 puts it at the top of the screen, 100 as low as it fits with search results showing.</description>
     </key>
+    <key name="search-min-width" type="i">
+      <range min="0" max="3840"/>
+      <default>720</default>
+      <summary>Minimum width of the search results, in pixels</summary>
+      <description>The panel widens to this while showing results. It never gets wider than the screen.</description>
+    </key>
     <key name="show-dash" type="b">
       <default>true</default>
       <summary>Show the dash</summary>

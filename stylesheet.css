@@ -5,23 +5,20 @@
   spacing: 8px;
 }
 
+/* Padded and rounded like the theme's #dash .dash-background */
 .minimal-launcher-panel {
   background-color: rgba(36, 36, 36, 0.97);
   border-radius: 28px;
-  box-shadow: 0 4px 24px rgba(0, 0, 0, 0.45);
-  padding: 18px;
+  /* libadwaita's focused window shadow; St draws only one, so its two
+     fainter layers are left out */
+  box-shadow: 0 0 14px 5px rgba(0, 0, 0, 0.15);
+  padding: 12px 10px;
   spacing: 12px;
 }
 
-/* Idle (no results): just the entry, full width and vertically centred,
-   in a pill-shaped panel. The theme's .search-entry margins (12px above,
-   6px below, made for the overview) are dropped. */
-.minimal-launcher-panel.compact {
-  border-radius: 999px;
-  padding: 6px;
-}
-
-.minimal-launcher-panel.compact .search-entry {
+/* The theme's margins (12px above, 6px below) are made for the overview;
+   without them the entry is vertically centred when idle */
+.minimal-launcher-panel .search-entry {
   margin-top: 0;
   margin-bottom: 0;
 }
