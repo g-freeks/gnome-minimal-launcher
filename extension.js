@@ -15,6 +15,9 @@ import {LauncherPopup} from './popup.js';
 export default class MinimalLauncherExtension extends Extension {
     enable() {
         this._settings = this.getSettings();
+        // A preview left on (e.g. the settings window crashed) must not
+        // survive a restart or screen lock
+        this._settings.reset('show-preview');
         this._popup = new LauncherPopup(this._settings);
         this._superKeyHandlerId = 0;
         this._lastSuperKeyTime = 0;

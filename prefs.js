@@ -135,7 +135,7 @@ class ShortcutRow extends Adw.ActionRow {
     _capture() {
         const dialog = new Adw.AlertDialog({
             heading: _('Set Shortcut'),
-            body: _('Press a key combination. Press Esc to cancel or Backspace to disable the shortcut.\n\nCombinations GNOME already uses can’t be recorded. To use the Super key on its own, turn on “Use the Super Key” instead.'),
+            body: _('Press a key combination. Press Esc to cancel or Backspace to disable the shortcut.\n\nTo use the Super key on its own, turn on “Use the Super Key” instead.'),
         });
         dialog.add_response('cancel', _('Cancel'));
 
@@ -171,6 +171,13 @@ class ShortcutRow extends Adw.ActionRow {
         });
         dialog.add_controller(controller);
 
+        // Otherwise combinations GNOME (or this extension) already binds,
+        // like Super+Space, never reach the dialog. GNOME asks the user once
+        // whether to allow this.
+        const toplevel = this.get_root().get_surface();
+        toplevel.inhibit_system_shortcuts(null);
+        dialog.connect('closed', () => toplevel.restore_system_shortcuts());
+
         dialog.present(this);
     }
 });
@@ -200,6 +207,18 @@ export default class MinimalLauncherPreferences extends ExtensionPreferences {
         const appearanceGroup = new Adw.PreferencesGroup({title: _('Appearance')});
         page.add(appearanceGroup);
 
+        const previewRow = new Adw.SwitchRow({
+            title: _('Show Preview'),
+            subtitle: _('Show the launcher while changing these settings. It doesn’t take input; move this window aside to see it.'),
+        });
+        settings.bind('show-preview', previewRow, 'active',
+            Gio.SettingsBindFlags.DEFAULT);
+        appearanceGroup.add(previewRow);
+        window.connect('close-request', () => {
+            settings.reset('show-preview');
+            return false;
+        });
+
         appearanceGroup.add(this._createPercentRow(settings, 'backdrop-transparency', {
             title: _('Backdrop Transparency'),
             subtitle: _('How much of the desktop shows through behind the popup'),
@@ -209,13 +228,33 @@ export default class MinimalLauncherPreferences extends ExtensionPreferences {
             subtitle: _('From the top of the screen (0%) to as low as the search results still fit (100%)'),
         }));
 
-        const dashRow = new Adw.SwitchRow({
-            title: _('Dock at Bottom of Screen'),
-            subtitle: _('Instead of attached below the search bar'),
+        const dockGroup = new Adw.PreferencesGroup({title: _('Dock')});
+        page.add(dockGroup);
+
+        const showDockRow = new Adw.SwitchRow({
+            title: _('Show Dock'),
+            subtitle: _('Favorite and running apps below the search bar'),
         });
-        settings.bind('dash-at-bottom', dashRow, 'active',
+        settings.bind('show-dash', showDockRow, 'active',
             Gio.SettingsBindFlags.DEFAULT);
-        appearanceGroup.add(dashRow);
+        dockGroup.add(showDockRow);
+
+        const dockRows = [
+            this._createPercentRow(settings, 'dash-icon-scale', {
+                title: _('Icon Size'),
+                subtitle: _('Shrinks again when the dock would get wider than the screen'),
+            }),
+            new Adw.SwitchRow({
+                title: _('At Bottom of Screen'),
+                subtitle: _('Instead of attached below the search bar'),
+            }),
+        ];
+        settings.bind('dash-at-bottom', dockRows[1], 'active',
+            Gio.SettingsBindFlags.DEFAULT);
+        for (const row of dockRows) {
+            settings.bind('show-dash', row, 'sensitive', Gio.SettingsBindFlags.GET);
+            dockGroup.add(row);
+        }
 
         const searchGroup = new Adw.PreferencesGroup({title: _('Search')});
         page.add(searchGroup);
@@ -268,11 +307,13 @@ export default class MinimalLauncherPreferences extends ExtensionPreferences {
 
     _createPercentRow(settings, key, params) {
         const row = new Adw.ActionRow(params);
+        const [lower, upper] = settings.settings_schema.get_key(key)
+            .get_range().recursiveUnpack()[1];
 
         const scale = new Gtk.Scale({
             adjustment: new Gtk.Adjustment({
-                lower: 0,
-                upper: 100,
+                lower,
+                upper,
                 step_increment: 1,
                 page_increment: 10,
             }),

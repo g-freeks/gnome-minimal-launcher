@@ -100,6 +100,7 @@ class LauncherPopup extends St.Widget {
 
         this._settings = settings;
         this._grab = null;
+        this._previewing = false;
         this._lastResultFocus = null;
         this._searchHandlers = [];
         this._searchProviders = new Map();
@@ -143,6 +144,9 @@ class LauncherPopup extends St.Widget {
         this._dash = new Dash();
         this._dash.x_expand = true;
         this._dash._background.x_expand = true;
+        // dash-icon-scale applies on top of the size the dash picks itself
+        this._dashBaseIconSize = this._dash.iconSize;
+        this._dash._adjustIconSize = () => this._adjustDashIconSize();
 
         // Connected before SearchController connects its own handler, so this
         // one runs first (see _onEntryKeyPress)
@@ -182,7 +186,17 @@ class LauncherPopup extends St.Widget {
                 this._updateSize();
             },
             'changed::vertical-position', () => this._updateSize(),
+            'changed::show-dash', () => {
+                this._dash.visible = this._settings.get_boolean('show-dash');
+                this._updateSize();
+            },
+            'changed::dash-icon-scale', () => {
+                this._updateSize();
+                this._adjustDashIconSize();
+            },
+            'changed::show-preview', () => this._syncPreview(),
             this);
+        this._dash.visible = this._settings.get_boolean('show-dash');
         // The dash only knows its final height once its icons are sized
         this._dash.connectObject('notify::height', () => {
             if (this.isOpen)
@@ -229,6 +243,8 @@ class LauncherPopup extends St.Widget {
     open() {
         if (this.isOpen || Main.overview.visible)
             return;
+        if (this._previewing)
+            this._endPreview();
 
         this._updateSize();
         this.opacity = 0;
@@ -257,6 +273,30 @@ class LauncherPopup extends St.Widget {
         // Hiding unmaps the SearchController, which resets the search.
         this.remove_all_transitions();
         this.hide();
+        this._syncPreview();
+    }
+
+    // While the settings window has "Show Preview" on, the launcher stays
+    // visible without a grab and hidden from picking, so the settings window
+    // keeps all input and changes show live.
+    _syncPreview() {
+        const wanted = this._settings.get_boolean('show-preview');
+        if (wanted && !this._previewing && !this.isOpen) {
+            this._previewing = true;
+            Shell.util_set_hidden_from_pick(this, true);
+            this._updateSize();
+            this.opacity = 255;
+            this.show();
+        } else if (!wanted && this._previewing) {
+            this._endPreview();
+        }
+    }
+
+    _endPreview() {
+        this._previewing = false;
+        Shell.util_set_hidden_from_pick(this, false);
+        if (!this.isOpen)
+            this.hide();
     }
 
     // Dash icons and search results call Main.overview.hide()/toggle() after
@@ -367,14 +407,19 @@ class LauncherPopup extends St.Widget {
         const workBottom = workTop + workArea.height;
 
         this._searchHeight = Math.round(monitor.height * PANEL_SEARCH_HEIGHT);
-        this._dash.setMaxSize(Math.round(monitor.width * DASH_MAX_WIDTH),
+        // The dash sizes its icons to fit; scaled up, they must fit too
+        const iconScale = this._settings.get_int('dash-icon-scale') / 100;
+        this._dash.setMaxSize(Math.round(monitor.width * DASH_MAX_WIDTH / iconScale),
             Math.round(monitor.height * DASH_MAX_HEIGHT));
-        const [, dashHeight] = this._dash.get_preferred_height(-1);
 
         // The gap between panel and dash, also kept to a dash at the bottom
-        const spacing = this._column.get_theme_node().get_length('spacing');
+        let dashSpace = 0;
+        if (this._dash.visible) {
+            const [, dashHeight] = this._dash.get_preferred_height(-1);
+            dashSpace = this._column.get_theme_node().get_length('spacing') + dashHeight;
+        }
         let bottom = workBottom;
-        const grownHeight = this._searchHeight + spacing + dashHeight;
+        const grownHeight = this._searchHeight + dashSpace;
         if (this._dash.get_parent() === this) {
             const margin = Math.round(monitor.height * DASH_BOTTOM_MARGIN);
             this._dash.translation_y = -(monitor.height - workBottom + margin);
@@ -395,7 +440,7 @@ class LauncherPopup extends St.Widget {
         // With the dash at the bottom the panel is only as wide as the entry,
         // too narrow for list results; give them at least the dash's width
         const dashAtBottom = this._dash.get_parent() === this;
-        if (searchActive && dashAtBottom)
+        if (searchActive && dashAtBottom && this._dash.visible)
             this._panel.min_width = this._dash.width;
         else
             this._panel.min_width_set = false;
@@ -433,6 +478,31 @@ class LauncherPopup extends St.Widget {
         }
         this._searchController.reset();
         this._entry.grab_key_focus();
+    }
+
+    // Wraps Dash._adjustIconSize: the dash picks a size for the space it has
+    // from its unscaled size, then all its icons get the scaled size
+    _adjustDashIconSize() {
+        const dash = this._dash;
+        dash.iconSize = this._dashBaseIconSize;
+        Dash.prototype._adjustIconSize.call(dash);
+        this._dashBaseIconSize = dash.iconSize;
+
+        const scale = this._settings.get_int('dash-icon-scale') / 100;
+        const size = Math.round(this._dashBaseIconSize * scale);
+        dash.iconSize = size;
+
+        const icons = dash._box.get_children()
+            .map(item => item.child?._delegate?.icon)
+            .filter(icon => icon);
+        icons.push(dash._showAppsIcon.icon);
+        for (const icon of icons)
+            icon.setIconSize(size);
+
+        if (dash._separator) {
+            dash._separator.remove_all_transitions();
+            dash._separator.height = size;
+        }
     }
 
     // Enter/Space activate the focused item (St.Button keyboard handling)

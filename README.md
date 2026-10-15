@@ -46,10 +46,13 @@ On Wayland, GNOME Shell only loads new extensions at login, so log out and back 
 
 Open the settings from the Extensions app, or run `gnome-extensions prefs minimal-launcher@g-freeks.github.io`.
 
-- **Shortcut.** Default: <kbd>Super</kbd>+<kbd>/</kbd>, which is free in a default GNOME. If you pick a combination GNOME already uses, GNOME's shortcut takes precedence, and the settings window warns about it.
+- **Shortcut.** Default: <kbd>Super</kbd>+<kbd>/</kbd>, which is free in a default GNOME. Any combination can be recorded, including ones GNOME already uses; the first time, GNOME asks whether the Extensions app may inhibit shortcuts while recording. If GNOME already uses the combination, its own shortcut takes precedence, and the settings window warns about it.
 - **Use the Super key.** On by default. Pressing <kbd>Super</kbd> on its own opens the popup instead of the overview. Pressing <kbd>Super</kbd> twice quickly opens the overview. The Activities button, the hot corner and <kbd>Super</kbd>+<kbd>A</kbd> also still open it.
+- **Show preview.** Shows the launcher while you change settings, so every change is visible right away. The preview doesn't take input; move the settings window aside to see it. It turns off when the settings window closes.
 - **Backdrop transparency.** How much of the desktop shows through behind the popup. Default: 65%.
 - **Vertical position.** Where the launcher sits, from the top of the screen (0%) to as low as it fits with search results showing (100%). Default: 40%.
+- **Show dock.** On by default. Without it the launcher is just the search box.
+- **Dock icon size.** 50–200% of the size the dock would pick itself; it still shrinks icons when the dock would get wider than the screen.
 - **Dock at bottom of screen.** Shows the dock at the bottom edge, like the overview does, instead of attached below the search bar.
 
 The launcher is as wide as its content. With the dock attached, the search box and dock share the width of the wider one. With the dock at the bottom, each has its own width, and search results get at least the dock's width.

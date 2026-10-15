@@ -93,9 +93,10 @@ Code must meet https://gjs.guide/extensions/review-guidelines/review-guidelines.
     - On `destroy()` the child watches are swapped for no-op ones, so the processes still get reaped.
 - `prefs.js` is the GTK4/libadwaita settings window. It runs in a separate process, so no shell imports.
   - `ShortcutRow` captures a new accelerator in an `Adw.AlertDialog` with a capture-phase key controller. Esc cancels, Backspace disables, and a modifier is required (except F-keys).
-  - Combinations the compositor already grabs never reach the dialog.
+  - While the dialog is open, the window's toplevel calls `inhibit_system_shortcuts()`. Otherwise combinations the compositor already grabs (GNOME's own like Super+Space, or this extension's current shortcut) never reach the dialog. GNOME asks once ("Allow inhibiting shortcuts") and remembers the answer in the permission store; `restore_system_shortcuts()` runs on `closed`.
   - `findSystemShortcut` scans GNOME's keybinding schemas to warn about conflicts.
-  - Reset buttons compare the value to the schema default.
+  - Reset buttons compare the value to the schema default. Percent sliders (`_createPercentRow`) take their range from the schema.
+  - "Show Preview" (`show-preview`) is reset when the window closes, and by `enable()` in case the window never got to it.
   - `Adw.ShortcutLabel` needs libadwaita 1.8, which GNOME 49 has.
   - The footer shows `version-name` (stamped by CI on tags), or else the numeric `version` extensions.gnome.org adds, or else "Development version". It also links to `${metadata.url}/issues`. The prefs process gets metadata from the shell, so metadata changes only show after a shell restart.
 - `popup.js` holds `LauncherPopup`, which is the whole feature. It is a full-monitor dimmed backdrop (added with `Main.layoutManager.addChrome`; its colour comes from `backdrop-transparency` as an inline style) holding a column with two parts: a styled panel (search entry + results), and the dash attached below it. Widths come from content, never from the monitor.
@@ -106,6 +107,9 @@ Code must meet https://gjs.guide/extensions/review-guidelines/review-guidelines.
   - With `dash-at-bottom`, `_placeDash` reparents the dash from the column to the backdrop. Two `AlignConstraint`s keep it bottom-centred at its natural width, and `translation_y` lifts it above anything below the work area. The panel then keeps the entry's width, except while searching, when `_onSearchChanged` gives it at least the dash's width so list results aren't cramped.
   - `vertical-position` (`_updateSize`) places the column's top within the free space left once the panel has grown to its search height (plus the dash and the gap): 0% is the work-area top, 100% as low as it still fits above the work-area bottom or the bottom dash. The dash's height is only final once its icons are sized, so `_updateSize` reruns on the dash's `notify::height` while open.
   - While the popup is open it holds a `Main.pushModal` grab in `ActionMode.POPUP`.
+  - Preview (`_syncPreview`): while `show-preview` is on and the popup isn't open, it's shown without a grab and with `Shell.util_set_hidden_from_pick`, so the settings window keeps all pointer input. Every setting already applies live. Opening for real ends the preview; closing resumes it.
+  - `show-dash` hides the dash. A hidden dash takes no space in the column, and `_updateSize` and `_onSearchChanged` ignore it.
+  - Icon scale: the dash's `_adjustIconSize` is overridden on our instance (`_adjustDashIconSize`). The original runs against the unscaled base size (so it still picks a size that fits), and then every icon gets `base * dash-icon-scale`. `_updateSize` divides the dash's max width by the scale, so scaled icons still fit the screen.
 
 The popup creates **its own instances** of the shell's `Dash` (`ui/dash.js`) and `SearchController` (`ui/searchController.js`). The search entry is built the same way `ControlsManager` builds it in `ui/overviewControls.js`, so the theme's overview styles apply. These classes assume they live inside `Main.overview`, and that assumption is patched in three places:
 

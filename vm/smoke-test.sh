@@ -9,7 +9,7 @@ source "$(dirname "$0")/common.sh"
 UUID=$(grep -oP '"uuid":\s*"\K[^"]+' "$REPO/metadata.json")
 POPUP="Main.extensionManager.lookup('$UUID').stateObj._popup"
 SETTINGS="Main.extensionManager.lookup('$UUID').stateObj._settings"
-KEYS="['toggle-popup', 'super-key-opens-popup', 'backdrop-transparency', 'dash-at-bottom', 'enable-path-search', 'enable-run-command', 'vertical-position']"
+KEYS="['toggle-popup', 'super-key-opens-popup', 'backdrop-transparency', 'dash-at-bottom', 'enable-path-search', 'enable-run-command', 'vertical-position', 'show-dash', 'dash-icon-scale', 'show-preview']"
 
 failures=0
 js() { "$VM_CMD" eval "$1" | sed -E "s/^\(true, '\"?(.*)\"?'\)$/\1/" | sed -E 's/"$//'; }
@@ -139,6 +139,32 @@ check "dock at bottom: Down focuses the dock" "$POPUP._dash.contains(global.stag
 key KEY_ESC
 js "$SETTINGS.reset('dash-at-bottom')" >/dev/null
 check "dock returns below the search bar" "$POPUP._dash.get_parent() === $POPUP._column"
+
+js "$SETTINGS.set_int('dash-icon-scale', 150)" >/dev/null
+sleep 0.5
+check "dock icon size: 150% scales the icons" "$POPUP._dash.iconSize === Math.round($POPUP._dashBaseIconSize * 1.5)"
+js "$SETTINGS.reset('dash-icon-scale')" >/dev/null
+check "dock icon size: reset restores them" "$POPUP._dash.iconSize === $POPUP._dashBaseIconSize"
+
+js "$SETTINGS.set_boolean('show-dash', false)" >/dev/null
+key KEY_LEFTMETA KEY_SLASH
+sleep 0.6
+check "show dock off: no dock" "!$POPUP._dash.visible && $POPUP._column.width === $POPUP._panel.width"
+key KEY_DOWN
+check "show dock off: Down stays in the entry, no menu" "Main.modalCount === 1 && global.stage.key_focus === $POPUP._entry.clutter_text"
+key KEY_ESC
+js "$SETTINGS.reset('show-dash')" >/dev/null
+
+js "$SETTINGS.set_boolean('show-preview', true)" >/dev/null
+sleep 0.5
+check "preview: shown without a grab" "$POPUP.visible && !$POPUP.isOpen && Main.modalCount === 0"
+key KEY_LEFTMETA KEY_SLASH
+sleep 0.6
+check "preview: the shortcut still opens it for real" "$POPUP.isOpen && Main.modalCount === 1"
+key KEY_ESC
+check "preview: back to the preview after closing" "$POPUP.visible && !$POPUP.isOpen && Main.modalCount === 0"
+js "$SETTINGS.reset('show-preview')" >/dev/null
+check "preview: hidden when switched off" "!$POPUP.visible"
 
 workarea="Main.layoutManager.getWorkAreaForMonitor(Main.layoutManager.primaryIndex)"
 js "$SETTINGS.set_int('vertical-position', 0)" >/dev/null

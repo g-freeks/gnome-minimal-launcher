@@ -19,6 +19,7 @@ usage: [GNOME=<major>] vm/vm <command> [args]
   restart-shell              restart GDM (auto-login) to load new extension code
   wait-shell                 block until GNOME Shell is up, then leave the overview
   eval <js>                  run JS in the VM's gnome-shell, print the result
+  prefs                      (re)open the extension's settings window
   logs [journalctl args]     gnome-shell log of the current boot
   screenshot [file.png]      capture the VM display (default .vm/screen-<major>.png)
   key <KEY>...               press a key combo, e.g. key KEY_LEFTMETA KEY_SLASH
@@ -100,6 +101,20 @@ restart-shell)
     wait_shell ;;
 wait-shell) wait_shell ;;
 eval) shell_eval "$1" ;;
+prefs)
+    # The Extensions app is a D-Bus service: a fresh start right after a
+    # kill sometimes drops the first request, so retry until it shows
+    name=$(grep -oP '"name":\s*"\K[^"]+' "$REPO/metadata.json")
+    uuid=$(grep -oP '"uuid":\s*"\K[^"]+' "$REPO/metadata.json")
+    "${SSH[@]}" pkill -f org.gnome.Shell.Extensions || true
+    for _ in 1 2 3 4 5; do
+        "${SSH[@]}" "$BUS gnome-extensions prefs $uuid"
+        sleep 2
+        shell_eval "global.display.focus_window?.title === '$name'" |
+            grep -q "'true'" && exit 0
+    done
+    echo "settings window did not open" >&2
+    exit 1 ;;
 logs) "${SSH[@]}" journalctl -b -o cat /usr/bin/gnome-shell "$@" ;;
 screenshot)
     out=${1:-$STATE/screen-$GNOME.png}

@@ -44,3 +44,7 @@ ui/search.js	this\.provider\.filterResults\(
 ui/search.js	this\.provider\.activateResult\(
 ui/search.js	provider\.launchSearch\(
 ui/main.js	^export function notify\(msg, details
+ui/dash.js	^    _adjustIconSize\(\)
+ui/dash.js	icon\.setIconSize\(this\.iconSize\)
+ui/dash.js	this\._showAppsIcon = new ShowAppsIcon\(\)
+ui/dash.js	this\._box = new St\.Widget
