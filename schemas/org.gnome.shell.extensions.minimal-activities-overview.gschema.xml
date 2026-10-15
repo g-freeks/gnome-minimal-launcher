@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<schemalist>
+  <schema id="org.gnome.shell.extensions.minimal-activities-overview"
+          path="/org/gnome/shell/extensions/minimal-activities-overview/">
+    <key name="toggle-popup" type="as">
+      <default><![CDATA[['<Super>slash']]]></default>
+      <summary>Toggle the overview popup</summary>
+    </key>
+  </schema>
+</schemalist>

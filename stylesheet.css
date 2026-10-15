@@ -1,0 +1,22 @@
+.minimal-overview-backdrop {
+  background-color: rgba(0, 0, 0, 0.35);
+}
+
+.minimal-overview-column {
+  spacing: 8px;
+}
+
+.minimal-overview-panel {
+  background-color: rgba(36, 36, 36, 0.97);
+  border-radius: 28px;
+  box-shadow: 0 4px 24px rgba(0, 0, 0, 0.45);
+  padding: 18px;
+  spacing: 12px;
+}
+
+/* The theme pads #dash by 6px left/right, which would make its background
+   narrower than the panel above */
+.minimal-overview-column #dash {
+  padding-left: 0;
+  padding-right: 0;
+}

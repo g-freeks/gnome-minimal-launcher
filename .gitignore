@@ -1,0 +1,4 @@
+*.shell-extension.zip
+schemas/gschemas.compiled
+node_modules/
+.vm/

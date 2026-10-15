@@ -1,0 +1,93 @@
+# Unattended Fedora 44 Workstation install for extension development.
+# Rendered by vm/create.sh (@SSH_PUBKEY@ is substituted).
+text
+url --mirrorlist=https://mirrors.fedoraproject.org/mirrorlist?repo=fedora-44&arch=x86_64
+repo --name=updates --mirrorlist=https://mirrors.fedoraproject.org/mirrorlist?repo=updates-released-f44&arch=x86_64
+
+lang en_US.UTF-8
+# US layout so `vm/vm key` keycodes map predictably
+keyboard --vckeymap=us --xlayouts=us
+timezone Europe/Stockholm --utc
+network --bootproto=dhcp --hostname=gnome-ext-dev
+
+rootpw --lock
+user --name=dev --groups=wheel --password=dev --plaintext
+sshkey --username=dev "@SSH_PUBKEY@"
+services --enabled=sshd
+firstboot --disable
+
+zerombr
+clearpart --all --initlabel --disklabel=gpt
+autopart
+bootloader --timeout=1
+poweroff
+
+%packages
+@^workstation-product-environment
+openssh-server
+-gnome-initial-setup
+-gnome-tour
+%end
+
+%post --erroronfail
+set -eux
+UUID=minimal-activities-overview@g-freeks.github.io
+
+# A text-mode install leaves multi-user.target as default
+systemctl set-default graphical.target
+
+echo 'dev ALL=(ALL) NOPASSWD: ALL' > /etc/sudoers.d/dev
+chmod 440 /etc/sudoers.d/dev
+
+cat > /etc/gdm/custom.conf <<'CONF'
+[daemon]
+AutomaticLoginEnable=True
+AutomaticLogin=dev
+CONF
+
+# Turns on unsafe mode so org.gnome.Shell.Eval works (used by `vm/vm eval`)
+DEVTOOLS=/usr/share/gnome-shell/extensions/devtools@gnome-ext-dev.local
+mkdir -p $DEVTOOLS
+cat > $DEVTOOLS/metadata.json <<'JSON'
+{
+  "uuid": "devtools@gnome-ext-dev.local",
+  "name": "Dev VM tools",
+  "description": "Enables unsafe mode for Shell.Eval. Development VM only.",
+  "shell-version": ["50"]
+}
+JSON
+cat > $DEVTOOLS/extension.js <<'JS'
+import {Extension} from 'resource:///org/gnome/shell/extensions/extension.js';
+
+export default class DevtoolsExtension extends Extension {
+    enable() {
+        global.context.unsafe_mode = true;
+    }
+
+    disable() {
+    }
+}
+JS
+
+mkdir -p /etc/dconf/db/local.d
+cat > /etc/dconf/db/local.d/00-extension-dev <<CONF
+[org/gnome/shell]
+enabled-extensions=['devtools@gnome-ext-dev.local', '$UUID']
+disable-user-extensions=false
+welcome-dialog-last-shown-version='999'
+
+[org/gnome/desktop/session]
+idle-delay=uint32 0
+
+[org/gnome/desktop/screensaver]
+lock-enabled=false
+CONF
+dconf update
+
+# Host repo, shared over virtiofs, symlinked in as the installed extension
+mkdir -p /home/dev/repo /home/dev/.local/share/gnome-shell/extensions /home/dev/.config
+echo 'repo /home/dev/repo virtiofs defaults,nofail 0 0' >> /etc/fstab
+ln -s /home/dev/repo /home/dev/.local/share/gnome-shell/extensions/$UUID
+echo yes > /home/dev/.config/gnome-initial-setup-done
+chown -R dev:dev /home/dev
+%end
