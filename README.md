@@ -67,3 +67,7 @@ vm/vm                      # list the helper commands: eval JS in the shell, sen
 Pushing a `v*` tag builds the extension zip and attaches it to a GitHub release.
 
 [CLAUDE.md](CLAUDE.md) covers the architecture and how the popup reuses the shell's `SearchController` and `Dash`.
+
+## License
+
+GPL-2.0-or-later, the same as GNOME Shell. See [LICENSE](LICENSE).

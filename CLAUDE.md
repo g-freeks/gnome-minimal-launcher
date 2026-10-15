@@ -61,6 +61,18 @@ Snapshots only work while the VM is shut off (`vm/vm stop`, wait for `vm/vm stat
 
 To run a headless shell for smoke tests (`gnome-shell --headless --virtual-monitor 1920x1080 --wayland`), set `HOME`/`XDG_*` *before* `dbus-run-session`, i.e. `env HOME=… XDG_CONFIG_HOME=… dbus-run-session …`. Otherwise dconf-service inherits the real environment, and any `gsettings set` overwrites the user's live settings. The shell also starts with the overview showing, so `Main.overview.hide()` it before calling `open()`.
 
+## Publishing (extensions.gnome.org review guidelines)
+
+Code must meet https://gjs.guide/extensions/review-guidelines/review-guidelines.html. In practice for this repo:
+- Create nothing before `enable()`. `disable()` must undo everything, including handlers that shell code connected on our behalf (see `createSearchController`).
+- No logging.
+- No GTK imports in the shell process.
+- Every shipped file carries an SPDX header (GPL-2.0-or-later, see `LICENSE`).
+- `metadata.json` keeps only valid keys: no `version`; `version-name` is stamped by CI from the tag.
+- The zip ships only `metadata.json`, the JS files, `stylesheet.css` and the schema. Build and dev files stay out (`make pack`).
+- Reviewers reject code that looks AI-generated (unnecessary code, inconsistent style, comments addressed to an LLM), so keep comments short and about *why*.
+- The `url` in `metadata.json` must point to a public repository before submission.
+
 ## Architecture
 
 - `extension.js` registers the keybinding and owns one `OverviewPopup` for the extension's lifetime.
@@ -68,7 +80,10 @@ To run a headless shell for smoke tests (`gnome-shell --headless --virtual-monit
 
 The popup creates **its own instances** of the shell's `Dash` (`ui/dash.js`) and `SearchController` (`ui/searchController.js`). The search entry is built the same way `ControlsManager` builds it in `ui/overviewControls.js`, so the theme's overview styles apply. These classes assume they live inside `Main.overview`, and that assumption is patched in three places:
 
-- **`createSearchController`** drops the `Main.overview` `showing`/`hiding` handlers that `SearchController` connects during construction. Left in place, the hidden copy would grab type-to-search keystrokes from the real overview. The popup instead forwards keys itself in `_onKeyPress`, using the private `_shouldTriggerSearch`/`startSearch`.
+- **`createSearchController`** records every handler that `SearchController`/`SearchResultsView` connect during construction on shell-wide objects: `Main.overview`, ParentalControlsManager, `Shell.AppSystem`, and `Gio.Settings` via its prototype. It does this by temporarily wrapping their `connect()` (`constructRecordingHandlers`).
+  - The shell never disconnects these handlers, because its own instances live forever. Ours are disconnected in `_onDestroy`. Otherwise every disable (which happens on every screen lock) leaves handlers that touch destroyed widgets, for example when an app is installed.
+  - The overview `showing`/`hiding` handlers are dropped right away. They would make the hidden copy grab type-to-search keystrokes from the real overview. The popup instead forwards keys itself in `_onKeyPress`, using the private `_shouldTriggerSearch`/`startSearch`.
+  - If a new shell version adds such connections on other objects, add those objects to the list. `vm/smoke-test.sh` catches the symptom: it disables the extension, pokes these objects and checks the log for "already disposed".
 - **Keyboard navigation** is done by the popup. St.FocusManager handles arrows/Tab from the stage's event handler, which never sees events under the popup's modal grab (the real overview grabs `global.stage`, so it doesn't have this problem).
   - `_navigate` mirrors the focus manager for the two focus groups (search results, dash) and steps between entry, results and dash at their edges. Up from the dash returns to the last result.
   - `_onEntryKeyPress` is connected to the entry's `clutter_text` *before* `SearchController` connects its own handler, so it runs first. It turns Down (with no search active) into focusing the dash; otherwise St.Entry opens its copy/paste menu. It also handles Escape: clear the search and keep focus in the entry, or close when the entry is empty. `SearchController` would otherwise drop key focus and swallow Escape on an empty entry.

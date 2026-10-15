@@ -1,7 +1,7 @@
 {
   "uuid": "minimal-activities-overview@g-freeks.github.io",
   "name": "Minimal Activities Overview",
-  "description": "A centered popup with the overview's search bar and dash, without zooming out to the window overview.",
+  "description": "A centered popup with the overview's search bar and dash, without zooming out to the window overview. Open it with Super+/.",
   "shell-version": ["49", "50"],
   "settings-schema": "org.gnome.shell.extensions.minimal-activities-overview",
   "url": "https://github.com/g-freeks/gnome-minimal-activities-overview"

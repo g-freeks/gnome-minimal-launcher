@@ -27,3 +27,4 @@ ui/layout.js	^    getWorkAreaForMonitor\(monitorIndex\)
 ui/main.js	^export function pushModal\(actor, params
 ui/main.js	^export function popModal\(grab\)
 ui/windowManager.js	^    addKeybinding\(name, settings, flags, modes, handler\)
+misc/parentalControlsManager.js	^export function getDefault\(\)

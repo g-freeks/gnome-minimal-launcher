@@ -1,9 +1,14 @@
+// SPDX-License-Identifier: GPL-2.0-or-later
+// SPDX-FileCopyrightText: 2026 g-freeks
+
 import Clutter from 'gi://Clutter';
+import Gio from 'gi://Gio';
 import GObject from 'gi://GObject';
 import Shell from 'gi://Shell';
 import St from 'gi://St';
+import Gettext from 'gettext';
 
-import {gettext as _} from 'resource:///org/gnome/shell/extensions/extension.js';
+import * as ParentalControlsManager from 'resource:///org/gnome/shell/misc/parentalControlsManager.js';
 import {Dash} from 'resource:///org/gnome/shell/ui/dash.js';
 import * as Layout from 'resource:///org/gnome/shell/ui/layout.js';
 import * as Main from 'resource:///org/gnome/shell/ui/main.js';
@@ -28,30 +33,57 @@ const NAVIGATION_KEYS = {
 };
 
 /**
- * SearchController hooks Main.overview 'showing'/'hiding' to listen for
- * type-to-search on the stage. For our copy that would steal key focus from
- * the real overview's search, so drop those two handlers right after
- * construction; the popup forwards keys itself (see _onKeyPress).
+ * Calls `construct()` while recording the signal handlers it connects on
+ * `targets` (objects or prototypes), so they can be disconnected later.
+ *
+ * @param {object[]} targets - objects whose connect() to record
+ * @param {Function} construct - creates the object
+ * @returns {Array} the constructed object and its [object, signal, id] handlers
+ */
+function constructRecordingHandlers(targets, construct) {
+    const handlers = [];
+    for (const target of targets) {
+        const {connect} = target;
+        target.connect = function (signal, ...args) {
+            const id = connect.call(this, signal, ...args);
+            handlers.push([this, signal, id]);
+            return id;
+        };
+    }
+    try {
+        return [construct(), handlers];
+    } finally {
+        for (const target of targets)
+            delete target.connect;
+    }
+}
+
+/**
+ * Creates a SearchController for the popup.
+ *
+ * SearchController and its SearchResultsView expect to live as long as the
+ * shell, so they connect to shell-wide objects without ever disconnecting.
+ * The returned handlers must be disconnected before destroying the
+ * controller. The Main.overview 'showing'/'hiding' handlers are dropped
+ * right away: they enable type-to-search on the stage and would steal key
+ * focus from the real overview's search. The popup forwards keys itself.
  *
  * @param {St.Entry} entry - the search entry
  * @param {St.Button} showAppsButton - the dash's show-apps toggle
- * @returns {SearchController}
+ * @returns {Array} the SearchController and its [object, signal, id] handlers
  */
 function createSearchController(entry, showAppsButton) {
-    const overview = Main.overview;
-    const ids = [];
-    overview.connect = function (name, ...args) {
-        const id = Object.getPrototypeOf(this).connect.call(this, name, ...args);
-        if (name === 'showing' || name === 'hiding')
-            ids.push(id);
-        return id;
-    };
-    try {
-        return new SearchController(entry, showAppsButton);
-    } finally {
-        delete overview.connect;
-        ids.forEach(id => overview.disconnect(id));
-    }
+    const [controller, handlers] = constructRecordingHandlers([
+        Main.overview,
+        ParentalControlsManager.getDefault(),
+        Shell.AppSystem.get_default(),
+        Gio.Settings.prototype,
+    ], () => new SearchController(entry, showAppsButton));
+
+    const isOverviewHandler = ([object]) => object === Main.overview;
+    handlers.filter(isOverviewHandler)
+        .forEach(([object, , id]) => object.disconnect(id));
+    return [controller, handlers.filter(h => !isOverviewHandler(h))];
 }
 
 export const OverviewPopup = GObject.registerClass(
@@ -65,8 +97,8 @@ class OverviewPopup extends St.Widget {
         this.add_constraint(new Layout.MonitorConstraint({primary: true}));
 
         this._grab = null;
-        this._overviewPatches = null;
         this._lastResultFocus = null;
+        this._searchHandlers = [];
 
         // Column: search panel (entry + results) with the dash attached
         // below it as a separate box of the same width.
@@ -86,7 +118,8 @@ class OverviewPopup extends St.Widget {
         // so the theme's overview styles apply unchanged.
         this._entry = new St.Entry({
             style_class: 'search-entry',
-            hint_text: _('Type to search'),
+            // Reuse the shell's translation of the overview's hint text
+            hint_text: Gettext.dgettext('gnome-shell', 'Type to search'),
             track_hover: true,
             can_focus: true,
         });
@@ -106,7 +139,7 @@ class OverviewPopup extends St.Widget {
         this._entry.clutter_text.connectObject('key-press-event',
             this._onEntryKeyPress.bind(this), this);
 
-        this._searchController =
+        [this._searchController, this._searchHandlers] =
             createSearchController(this._entry, this._dash.showAppsButton);
 
         this._panel.add_child(entryBin);
@@ -127,6 +160,7 @@ class OverviewPopup extends St.Widget {
 
         this.connect('key-press-event', this._onKeyPress.bind(this));
         this.connect('button-release-event', this._onButtonRelease.bind(this));
+        this.connect('destroy', this._onDestroy.bind(this));
 
         Main.layoutManager.addChrome(this);
     }
@@ -167,7 +201,7 @@ class OverviewPopup extends St.Widget {
         this._unpatchOverview();
         Main.popModal(this._grab);
         this._grab = null;
-        this._lastResultFocus = null;
+        this._setLastResultFocus(null);
 
         // Hiding unmaps the SearchController, which resets the search.
         this.remove_all_transitions();
@@ -178,16 +212,13 @@ class OverviewPopup extends St.Widget {
     // launching something. While the popup is open, route those to close()
     // so they don't open the full overview.
     _patchOverview() {
-        const overview = Main.overview;
-        this._overviewPatches = ['hide', 'toggle'];
-        for (const name of this._overviewPatches)
-            overview[name] = () => this.close();
+        Main.overview.hide = () => this.close();
+        Main.overview.toggle = () => this.close();
     }
 
     _unpatchOverview() {
-        for (const name of this._overviewPatches ?? [])
-            delete Main.overview[name];
-        this._overviewPatches = null;
+        delete Main.overview.hide;
+        delete Main.overview.toggle;
     }
 
     // Positioned explicitly (the backdrop has no layout manager) so the top
@@ -279,7 +310,7 @@ class OverviewPopup extends St.Widget {
         if (this._dash.contains(focus)) {
             if (symbol === Clutter.KEY_Up) {
                 const last = this._lastResultFocus;
-                if (last?.mapped && results.contains(last))
+                if (last?.mapped)
                     last.grab_key_focus();
                 else if (this._searchController.searchActive)
                     results.navigateFocus(St.DirectionType.UP);
@@ -298,13 +329,20 @@ class OverviewPopup extends St.Widget {
                 this._entry.grab_key_focus();
             } else if (symbol === Clutter.KEY_Down) {
                 // So Up from the dash returns to where we left the results
-                this._lastResultFocus = focus;
+                this._setLastResultFocus(focus);
                 this._focusDash();
             }
             return true;
         }
 
         return false;
+    }
+
+    // Results are destroyed when the search changes, so forget them then
+    _setLastResultFocus(actor) {
+        this._lastResultFocus?.disconnectObject(this);
+        this._lastResultFocus = actor;
+        actor?.connectObject('destroy', () => this._setLastResultFocus(null), this);
     }
 
     _onButtonRelease(actor, event) {
@@ -314,8 +352,10 @@ class OverviewPopup extends St.Widget {
         return Clutter.EVENT_PROPAGATE;
     }
 
-    destroy() {
+    _onDestroy() {
         this.close();
-        super.destroy();
+        for (const [object, , id] of this._searchHandlers)
+            object.disconnect(id);
+        this._searchHandlers = [];
     }
 });

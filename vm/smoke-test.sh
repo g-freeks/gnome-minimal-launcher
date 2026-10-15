@@ -23,6 +23,7 @@ check() { # <description> <js expression expected to be true>
 focus_name='(f => f?.app?.get_name() ?? f?.metaInfo?.name ?? (f === '"$POPUP"'._entry.clutter_text ? "entry" : String(f)))(global.stage.key_focus)'
 
 echo "GNOME Shell $(js 'Config.PACKAGE_VERSION')"
+since=$("$VM_CMD" ssh date "'+%F %T'")
 js "$POPUP.close(); Main.overview.hide()" >/dev/null
 sleep 1.5
 check "extension is active" "Main.extensionManager.lookup('$UUID').state === 1"
@@ -75,8 +76,20 @@ check "type-to-search still works in the overview" "Main.overview.searchEntry.te
 js "Main.overview.hide()" >/dev/null
 sleep 1.5
 
-errors=$("$VM_CMD" logs -n 2000 | grep -cE "JS ERROR|$UUID" || true)
-check "no extension errors in the shell log" "$errors === 0"
+# Disabling must leave nothing connected: poke the shell-wide objects the
+# search code connects to, which would reach destroyed widgets otherwise
+js "Main.extensionManager.disableExtension('$UUID')" >/dev/null
+sleep 1.5
+check "disabling deactivates the extension" "Main.extensionManager.lookup('$UUID').state !== 1"
+js "imports.gi.Shell.AppSystem.get_default().emit('installed-changed')" >/dev/null
+js "const s = new imports.gi.Gio.Settings({schema_id: 'org.gnome.desktop.search-providers'}); const v = s.get_strv('sort-order'); s.set_strv('sort-order', [...v, 'smoke-test.desktop']); s.set_strv('sort-order', v)" >/dev/null
+sleep 1
+js "Main.extensionManager.enableExtension('$UUID')" >/dev/null
+sleep 1.5
+check "re-enabling activates it again" "Main.extensionManager.lookup('$UUID').state === 1"
+
+errors=$("$VM_CMD" logs --since "'$since'" | grep -cE "JS ERROR|already disposed|$UUID" || true)
+check "no errors in the shell log during the test" "$errors === 0"
 
 echo
 [ $failures -eq 0 ] && echo "All checks passed" || echo "$failures check(s) failed"
