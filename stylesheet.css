@@ -13,6 +13,19 @@
   spacing: 12px;
 }
 
+/* Idle (no results): just the entry, full width and vertically centred,
+   in a pill-shaped panel. The theme's .search-entry margins (12px above,
+   6px below, made for the overview) are dropped. */
+.minimal-launcher-panel.compact {
+  border-radius: 999px;
+  padding: 6px;
+}
+
+.minimal-launcher-panel.compact .search-entry {
+  margin-top: 0;
+  margin-bottom: 0;
+}
+
 /* The theme pads #dash by 6px left/right, which would make its background
    narrower than the panel above */
 .minimal-launcher-backdrop #dash {

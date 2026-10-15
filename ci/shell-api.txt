@@ -48,3 +48,4 @@ ui/dash.js	^    _adjustIconSize\(\)
 ui/dash.js	icon\.setIconSize\(this\.iconSize\)
 ui/dash.js	this\._showAppsIcon = new ShowAppsIcon\(\)
 ui/dash.js	this\._box = new St\.Widget
+ui/search.js	^    (async )?_updateResults\(provider, 

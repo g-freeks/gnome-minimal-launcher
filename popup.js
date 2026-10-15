@@ -95,6 +95,19 @@ function createSearchController(entry, showAppsButton) {
     const isOverviewHandler = ([object]) => object === Main.overview;
     handlers.filter(isOverviewHandler)
         .forEach(([object, , id]) => object.disconnect(id));
+
+    // A provider can be unregistered (and its result widgets destroyed)
+    // while its search is still running: remote providers are reloaded
+    // when apps get installed, ours when switched off. The finished search
+    // would then update the destroyed widgets.
+    const results = controller._searchResults;
+    const updateResults = results._updateResults;
+    results._updateResults = function (provider, ...args) {
+        if (!this._providers.includes(provider))
+            return Promise.resolve();
+        return updateResults.call(this, provider, ...args);
+    };
+
     return [controller, handlers.filter(h => !isOverviewHandler(h))];
 }
 
@@ -145,7 +158,7 @@ class LauncherPopup extends St.Widget {
             track_hover: true,
             can_focus: true,
         });
-        const entryBin = new St.Bin({
+        this._entryBin = new St.Bin({
             child: this._entry,
             x_align: Clutter.ActorAlign.CENTER,
         });
@@ -167,7 +180,7 @@ class LauncherPopup extends St.Widget {
         [this._searchController, this._searchHandlers] =
             createSearchController(this._entry, this._dash.showAppsButton);
 
-        this._panel.add_child(entryBin);
+        this._panel.add_child(this._entryBin);
         this._panel.add_child(this._searchController);
         // The results fill the panel but don't widen it: the panel is as
         // wide as the search entry (or the dash, when attached)
@@ -223,6 +236,7 @@ class LauncherPopup extends St.Widget {
 
         this._searchController.connectObject('notify::search-active',
             () => this._onSearchChanged(), this);
+        this._onSearchChanged();
 
         // The popup has no app grid; hand off to the real overview's.
         this._dash.showAppsButton.connectObject('notify::checked', button => {
@@ -451,8 +465,17 @@ class LauncherPopup extends St.Widget {
     _onSearchChanged() {
         const {searchActive} = this._searchController;
         this._searchController.visible = searchActive;
-        // Just the entry when idle, fixed height while showing results
+        // Just the entry when idle (compact, filling the panel), fixed
+        // height while showing results
         this._panel.height = searchActive ? this._searchHeight : -1;
+        if (searchActive)
+            this._panel.remove_style_class_name('compact');
+        else
+            this._panel.add_style_class_name('compact');
+        this._entryBin.x_align = searchActive
+            ? Clutter.ActorAlign.CENTER
+            : Clutter.ActorAlign.FILL;
+        this._entry.x_expand = !searchActive;
 
         // With the dash at the bottom the panel is only as wide as the entry,
         // too narrow for list results; give them at least the dash's width

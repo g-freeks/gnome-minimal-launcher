@@ -39,6 +39,7 @@ sleep 0.6
 check "Super+/ opens the popup" "$POPUP.isOpen"
 check "search entry has focus" "$focus_name === 'entry'"
 check "dash is as wide as the panel" "$POPUP._dash.width === $POPUP._panel.width"
+check "idle: entry fills the panel and is vertically centred" "(([, py]) => (([, ey]) => ey - py === py + $POPUP._panel.height - ey - $POPUP._entry.height)($POPUP._entry.get_transformed_position()))($POPUP._panel.get_transformed_position()) && $POPUP._entry.width > $POPUP._panel.width * 0.9"
 check "launcher is centred horizontally" "Math.abs($POPUP._column.x + $POPUP._column.width / 2 - Main.layoutManager.primaryMonitor.width / 2) <= 1"
 "$VM_CMD" screenshot "$STATE/smoke-$GNOME-idle.png" >/dev/null
 
@@ -53,6 +54,7 @@ check "Up returns to the entry" "$focus_name === 'entry'"
 "$VM_CMD" type settings
 sleep 2.5
 check "typing starts a search" "$POPUP._searchController.searchActive"
+check "searching: entry back to its own width" "$POPUP._entry.width < $POPUP._panel.width * 0.9"
 "$VM_CMD" screenshot "$STATE/smoke-$GNOME-search.png" >/dev/null
 key KEY_DOWN
 a=$(js "$focus_name")
