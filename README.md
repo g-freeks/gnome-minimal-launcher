@@ -49,7 +49,10 @@ Open the settings from the Extensions app, or run `gnome-extensions prefs minima
 - **Shortcut.** Default: <kbd>Super</kbd>+<kbd>/</kbd>, which is free in a default GNOME. If you pick a combination GNOME already uses, GNOME's shortcut takes precedence, and the settings window warns about it.
 - **Use the Super key.** On by default. Pressing <kbd>Super</kbd> on its own opens the popup instead of the overview. Pressing <kbd>Super</kbd> twice quickly opens the overview. The Activities button, the hot corner and <kbd>Super</kbd>+<kbd>A</kbd> also still open it.
 - **Backdrop transparency.** How much of the desktop shows through behind the popup. Default: 65%.
+- **Vertical position.** Where the launcher sits, from the top of the screen (0%) to as low as it fits with search results showing (100%). Default: 40%.
 - **Dock at bottom of screen.** Shows the dock at the bottom edge, like the overview does, instead of attached below the search bar.
+
+The launcher is as wide as its content. With the dock attached, the search box and dock share the width of the wider one. With the dock at the bottom, each has its own width, and search results get at least the dock's width.
 - **Open paths / Run commands.** Turn the two search additions on or off. Both are on by default.
 
 The bottom of the settings window shows the installed version and links to the issue tracker.

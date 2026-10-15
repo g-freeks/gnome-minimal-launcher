@@ -17,8 +17,7 @@ import {SearchController} from 'resource:///org/gnome/shell/ui/searchController.
 import {SEARCH_PROVIDERS} from './providers/index.js';
 
 // Fractions of the primary monitor
-const PANEL_TOP = 0.15;
-const PANEL_WIDTH = 0.5;
+const DASH_MAX_WIDTH = 0.9;
 const PANEL_SEARCH_HEIGHT = 0.5;
 const DASH_MAX_HEIGHT = 0.12;
 const DASH_BOTTOM_MARGIN = 0.02;
@@ -107,11 +106,16 @@ class LauncherPopup extends St.Widget {
         this._completionCancellable = null;
 
         // Column: search panel (entry + results) with the dash attached
-        // below it as a separate box of the same width.
+        // below it. Both take the width of the wider of the two.
         this._column = new St.BoxLayout({
             style_class: 'minimal-launcher-column',
             orientation: Clutter.Orientation.VERTICAL,
         });
+        this._column.add_constraint(new Clutter.AlignConstraint({
+            source: this,
+            align_axis: Clutter.AlignAxis.X_AXIS,
+            factor: 0.5,
+        }));
         this.add_child(this._column);
 
         this._panel = new St.BoxLayout({
@@ -150,6 +154,10 @@ class LauncherPopup extends St.Widget {
 
         this._panel.add_child(entryBin);
         this._panel.add_child(this._searchController);
+        // The results fill the panel but don't widen it: the panel is as
+        // wide as the search entry (or the dash, when attached)
+        this._searchController.min_width = 0;
+        this._searchController.natural_width = 0;
 
         // Used while the dash sits at the bottom of the screen instead of in
         // the column; the bottom margin is applied as a translation
@@ -172,7 +180,14 @@ class LauncherPopup extends St.Widget {
             'changed::dash-at-bottom', () => {
                 this._placeDash();
                 this._updateSize();
-            }, this);
+            },
+            'changed::vertical-position', () => this._updateSize(),
+            this);
+        // The dash only knows its final height once its icons are sized
+        this._dash.connectObject('notify::height', () => {
+            if (this.isOpen)
+                this._updateSize();
+        }, this);
         this._updateBackdrop();
 
         for (const {settingsKey} of SEARCH_PROVIDERS) {
@@ -333,37 +348,42 @@ class LauncherPopup extends St.Widget {
             else
                 this._dash.remove_constraint(constraint);
         }
-        if (!atBottom) {
-            this._dash.width = -1;
+        if (!atBottom)
             this._dash.translation_y = 0;
-        }
         parent.add_child(this._dash);
     }
 
-    // Positioned explicitly (the backdrop has no layout manager) so the top
-    // edge stays put while the panel grows downwards with search results.
-    // Coordinates are relative to the backdrop, i.e. the primary monitor.
+    // The column's top edge is set explicitly (the backdrop has no layout
+    // manager), so it stays put while the panel grows downwards with search
+    // results. `vertical-position` places it within the space left once the
+    // panel is fully grown: 0% at the top of the work area, 100% as low as
+    // it fits. Coordinates are relative to the backdrop (the primary monitor).
     _updateSize() {
         const monitor = Main.layoutManager.primaryMonitor;
         if (!monitor)
             return;
         const workArea = Main.layoutManager.getWorkAreaForMonitor(monitor.index);
-        const width = Math.round(monitor.width * PANEL_WIDTH);
+        const workTop = workArea.y - monitor.y;
+        const workBottom = workTop + workArea.height;
 
-        this._column.set_position(
-            Math.round((monitor.width - width) / 2),
-            workArea.y - monitor.y + Math.round(workArea.height * PANEL_TOP));
-        this._column.width = width;
         this._searchHeight = Math.round(monitor.height * PANEL_SEARCH_HEIGHT);
-        this._dash.setMaxSize(width, Math.round(monitor.height * DASH_MAX_HEIGHT));
+        this._dash.setMaxSize(Math.round(monitor.width * DASH_MAX_WIDTH),
+            Math.round(monitor.height * DASH_MAX_HEIGHT));
+        const [, dashHeight] = this._dash.get_preferred_height(-1);
 
+        // The gap between panel and dash, also kept to a dash at the bottom
+        const spacing = this._column.get_theme_node().get_length('spacing');
+        let bottom = workBottom;
+        const grownHeight = this._searchHeight + spacing + dashHeight;
         if (this._dash.get_parent() === this) {
-            const belowWorkArea =
-                monitor.y + monitor.height - (workArea.y + workArea.height);
-            this._dash.width = width;
-            this._dash.translation_y =
-                -(belowWorkArea + Math.round(monitor.height * DASH_BOTTOM_MARGIN));
+            const margin = Math.round(monitor.height * DASH_BOTTOM_MARGIN);
+            this._dash.translation_y = -(monitor.height - workBottom + margin);
+            bottom = workBottom - margin;
         }
+
+        const freeSpace = Math.max(0, bottom - workTop - grownHeight);
+        const position = this._settings.get_int('vertical-position') / 100;
+        this._column.y = workTop + Math.round(freeSpace * position);
     }
 
     _onSearchChanged() {
@@ -371,6 +391,14 @@ class LauncherPopup extends St.Widget {
         this._searchController.visible = searchActive;
         // Just the entry when idle, fixed height while showing results
         this._panel.height = searchActive ? this._searchHeight : -1;
+
+        // With the dash at the bottom the panel is only as wide as the entry,
+        // too narrow for list results; give them at least the dash's width
+        const dashAtBottom = this._dash.get_parent() === this;
+        if (searchActive && dashAtBottom)
+            this._panel.min_width = this._dash.width;
+        else
+            this._panel.min_width_set = false;
     }
 
     _onEntryKeyPress(text, event) {

@@ -16,6 +16,12 @@
       <default>65</default>
       <summary>Transparency of the backdrop behind the popup, in percent</summary>
     </key>
+    <key name="vertical-position" type="i">
+      <range min="0" max="100"/>
+      <default>40</default>
+      <summary>Vertical position of the launcher, in percent</summary>
+      <description>0 puts it at the top of the screen, 100 as low as it fits with search results showing.</description>
+    </key>
     <key name="dash-at-bottom" type="b">
       <default>false</default>
       <summary>Show the dash at the bottom of the screen</summary>

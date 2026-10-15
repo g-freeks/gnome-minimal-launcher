@@ -200,7 +200,14 @@ export default class MinimalLauncherPreferences extends ExtensionPreferences {
         const appearanceGroup = new Adw.PreferencesGroup({title: _('Appearance')});
         page.add(appearanceGroup);
 
-        appearanceGroup.add(this._createTransparencyRow(settings));
+        appearanceGroup.add(this._createPercentRow(settings, 'backdrop-transparency', {
+            title: _('Backdrop Transparency'),
+            subtitle: _('How much of the desktop shows through behind the popup'),
+        }));
+        appearanceGroup.add(this._createPercentRow(settings, 'vertical-position', {
+            title: _('Vertical Position'),
+            subtitle: _('From the top of the screen (0%) to as low as the search results still fit (100%)'),
+        }));
 
         const dashRow = new Adw.SwitchRow({
             title: _('Dock at Bottom of Screen'),
@@ -259,12 +266,8 @@ export default class MinimalLauncherPreferences extends ExtensionPreferences {
         return group;
     }
 
-    _createTransparencyRow(settings) {
-        const key = 'backdrop-transparency';
-        const row = new Adw.ActionRow({
-            title: _('Backdrop Transparency'),
-            subtitle: _('How much of the desktop shows through behind the popup'),
-        });
+    _createPercentRow(settings, key, params) {
+        const row = new Adw.ActionRow(params);
 
         const scale = new Gtk.Scale({
             adjustment: new Gtk.Adjustment({

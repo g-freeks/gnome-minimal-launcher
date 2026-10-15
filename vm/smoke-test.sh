@@ -9,7 +9,7 @@ source "$(dirname "$0")/common.sh"
 UUID=$(grep -oP '"uuid":\s*"\K[^"]+' "$REPO/metadata.json")
 POPUP="Main.extensionManager.lookup('$UUID').stateObj._popup"
 SETTINGS="Main.extensionManager.lookup('$UUID').stateObj._settings"
-KEYS="['toggle-popup', 'super-key-opens-popup', 'backdrop-transparency', 'dash-at-bottom', 'enable-path-search', 'enable-run-command']"
+KEYS="['toggle-popup', 'super-key-opens-popup', 'backdrop-transparency', 'dash-at-bottom', 'enable-path-search', 'enable-run-command', 'vertical-position']"
 
 failures=0
 js() { "$VM_CMD" eval "$1" | sed -E "s/^\(true, '\"?(.*)\"?'\)$/\1/" | sed -E 's/"$//'; }
@@ -37,6 +37,7 @@ sleep 0.6
 check "Super+/ opens the popup" "$POPUP.isOpen"
 check "search entry has focus" "$focus_name === 'entry'"
 check "dash is as wide as the panel" "$POPUP._dash.width === $POPUP._panel.width"
+check "launcher is centred horizontally" "Math.abs($POPUP._column.x + $POPUP._column.width / 2 - Main.layoutManager.primaryMonitor.width / 2) <= 1"
 "$VM_CMD" screenshot "$STATE/smoke-$GNOME-idle.png" >/dev/null
 
 key KEY_DOWN
@@ -131,12 +132,30 @@ key KEY_LEFTMETA KEY_SLASH
 sleep 0.6
 check "dock at bottom: dock sits at the bottom of the screen" "(([, y]) => y + $POPUP._dash.height > Main.layoutManager.primaryMonitor.height * 0.9)($POPUP._dash.get_transformed_position())"
 check "dock at bottom: search entry has focus" "(global.stage.key_focus === $POPUP._entry.clutter_text)"
+check "dock at bottom: search box and dock have their own widths" "$POPUP._panel.width !== $POPUP._dash.width"
 key KEY_DOWN
 check "dock at bottom: Down focuses the dock" "$POPUP._dash.contains(global.stage.key_focus)"
 "$VM_CMD" screenshot "$STATE/smoke-$GNOME-dock-bottom.png" >/dev/null
 key KEY_ESC
 js "$SETTINGS.reset('dash-at-bottom')" >/dev/null
 check "dock returns below the search bar" "$POPUP._dash.get_parent() === $POPUP._column"
+
+workarea="Main.layoutManager.getWorkAreaForMonitor(Main.layoutManager.primaryIndex)"
+js "$SETTINGS.set_int('vertical-position', 0)" >/dev/null
+key KEY_LEFTMETA KEY_SLASH
+sleep 0.8
+check "vertical position 0%: at the top of the work area" "$POPUP._column.get_transformed_position()[1] === $workarea.y"
+key KEY_ESC
+js "$SETTINGS.set_int('vertical-position', 100)" >/dev/null
+key KEY_LEFTMETA KEY_SLASH
+sleep 0.8
+"$VM_CMD" type settings
+sleep 2
+check "vertical position 100%: grown launcher still fits" "(([, y]) => y + $POPUP._column.height <= $workarea.y + $workarea.height)($POPUP._column.get_transformed_position())"
+"$VM_CMD" screenshot "$STATE/smoke-$GNOME-position-100.png" >/dev/null
+key KEY_ESC
+key KEY_ESC
+js "$SETTINGS.reset('vertical-position')" >/dev/null
 
 js "$SETTINGS.set_boolean('super-key-opens-popup', true)" >/dev/null
 key KEY_LEFTMETA
