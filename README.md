@@ -24,9 +24,9 @@ Press <kbd>Super</kbd>+<kbd>/</kbd> and the popup appears over your current wind
 
 ## Requirements
 
-GNOME Shell **50**.
+GNOME Shell **49** or **50**.
 
-The extension reuses internal parts of GNOME Shell, so other versions are not supported until they've been checked.
+The extension reuses internal parts of GNOME Shell, so other versions are not supported until they've been checked. CI checks every supported version against the real shell release.
 
 ## Installation
 
@@ -50,12 +50,20 @@ gsettings --schemadir ~/.local/share/gnome-shell/extensions/minimal-activities-o
 
 ## Development
 
-The repository includes tooling for a disposable Fedora 44 development VM. It runs under libvirt in session mode and mounts this checkout as the installed extension, so you can test changes without logging out of your own session:
+```sh
+npm ci           # dev tooling (ESLint) only; the extension has no dependencies
+make check       # lint, validate the schema, check the shell internals we rely on
+```
+
+The repository includes tooling for disposable development VMs, one per supported GNOME version (Fedora 43 for GNOME 49, Fedora 44 for GNOME 50). They run under libvirt in session mode and mount this checkout as the installed extension, so you can test changes without logging out of your own session:
 
 ```sh
-make vm-create   # one-time, unattended install (needs @virtualization and virtiofsd)
-make vm-reload   # restart the VM's GNOME session to load your changes
-vm/vm            # list the helper commands: eval JS in the shell, send keys, screenshots, logs
+make vm-create             # one-time, unattended install (needs @virtualization and virtiofsd)
+make vm-reload             # restart the VM's GNOME session to load your changes
+make vm-reload GNOME=49    # the same, on the GNOME 49 VM
+vm/vm                      # list the helper commands: eval JS in the shell, send keys, screenshots, logs
 ```
+
+Pushing a `v*` tag builds the extension zip and attaches it to a GitHub release.
 
 [CLAUDE.md](CLAUDE.md) covers the architecture and how the popup reuses the shell's `SearchController` and `Dash`.

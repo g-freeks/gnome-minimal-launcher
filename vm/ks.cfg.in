@@ -1,14 +1,14 @@
-# Unattended Fedora 44 Workstation install for extension development.
-# Rendered by vm/create.sh (@SSH_PUBKEY@ is substituted).
+# Unattended Fedora Workstation install for extension development.
+# Rendered by vm/create.sh (@SSH_PUBKEY@, @FEDORA@ and @GNOME@ are substituted).
 text
-url --mirrorlist=https://mirrors.fedoraproject.org/mirrorlist?repo=fedora-44&arch=x86_64
-repo --name=updates --mirrorlist=https://mirrors.fedoraproject.org/mirrorlist?repo=updates-released-f44&arch=x86_64
+url --mirrorlist=https://mirrors.fedoraproject.org/mirrorlist?repo=fedora-@FEDORA@&arch=x86_64
+repo --name=updates --mirrorlist=https://mirrors.fedoraproject.org/mirrorlist?repo=updates-released-f@FEDORA@&arch=x86_64
 
 lang en_US.UTF-8
 # US layout so `vm/vm key` keycodes map predictably
 keyboard --vckeymap=us --xlayouts=us
 timezone Europe/Stockholm --utc
-network --bootproto=dhcp --hostname=gnome-ext-dev
+network --bootproto=dhcp --hostname=gnome-ext-dev-@GNOME@
 
 rootpw --lock
 user --name=dev --groups=wheel --password=dev --plaintext
@@ -31,6 +31,10 @@ openssh-server
 
 %post --erroronfail
 set -eux
+
+# The updates repo above doesn't reliably end up applied by the installer,
+# and the shell version should match what users of this release run
+dnf -y upgrade --refresh
 UUID=minimal-activities-overview@g-freeks.github.io
 
 # A text-mode install leaves multi-user.target as default
@@ -53,7 +57,7 @@ cat > $DEVTOOLS/metadata.json <<'JSON'
   "uuid": "devtools@gnome-ext-dev.local",
   "name": "Dev VM tools",
   "description": "Enables unsafe mode for Shell.Eval. Development VM only.",
-  "shell-version": ["50"]
+  "shell-version": ["@GNOME@"]
 }
 JSON
 cat > $DEVTOOLS/extension.js <<'JS'

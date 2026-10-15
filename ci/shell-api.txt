@@ -1,0 +1,29 @@
+# GNOME Shell internals the extension depends on, checked against the
+# installed shell's JS by ci/check-shell-api.sh.
+# Format: <path under /org/gnome/shell/> <TAB> <extended regex>
+# Mostly private API: when one goes missing, popup.js needs adapting.
+
+ui/searchController.js	^export const SearchController = GObject\.registerClass
+ui/searchController.js	_init\(searchEntry, showAppsButton\)
+ui/searchController.js	this\._searchResults = new Search\.SearchResultsView\(\)
+ui/searchController.js	Main\.overview\.connect\('showing'
+ui/searchController.js	^    _shouldTriggerSearch\(symbol\)
+ui/searchController.js	^    startSearch\(event\)
+ui/searchController.js	^    reset\(\)
+ui/searchController.js	^    get searchActive\(\)
+ui/search.js	^    navigateFocus\(direction\)
+ui/search.js	Main\.overview\.toggle\(\)
+ui/dash.js	^export const Dash = GObject\.registerClass
+ui/dash.js	this\._background = new St\.Widget
+ui/dash.js	this\.showAppsButton = 
+ui/dash.js	^    setMaxSize\(maxWidth, maxHeight\)
+ui/appDisplay.js	Main\.overview\.hide\(\)
+ui/overview.js	^    showApps\(\)
+ui/overview.js	^    hide\(\)
+ui/overview.js	^    toggle\(\)
+ui/layout.js	class MonitorConstraint extends Clutter\.Constraint
+ui/layout.js	^    addChrome\(actor, params\)
+ui/layout.js	^    getWorkAreaForMonitor\(monitorIndex\)
+ui/main.js	^export function pushModal\(actor, params
+ui/main.js	^export function popModal\(grab\)
+ui/windowManager.js	^    addKeybinding\(name, settings, flags, modes, handler\)

@@ -1,0 +1,88 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+    tags: ['v*']
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  lint:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 24
+          cache: npm
+      - run: npm ci
+      - run: npm run lint
+
+  # One job per supported GNOME Shell version, each in the Fedora release
+  # that ships it. Adding a version = a row here, in metadata.json
+  # (shell-version) and in vm/common.sh.
+  shell:
+    name: GNOME ${{ matrix.gnome }}
+    runs-on: ubuntu-latest
+    container: fedora:${{ matrix.fedora }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - {gnome: 49, fedora: 43}
+          - {gnome: 50, fedora: 44}
+    steps:
+      - uses: actions/checkout@v7
+      - name: Install GNOME Shell
+        run: dnf install -y --setopt=install_weak_deps=False gnome-shell glib2-devel jq make
+      - name: Check the container ships GNOME ${{ matrix.gnome }} and metadata.json lists it
+        run: |
+          major=$(gnome-shell --version | grep -oE '[0-9]+' | head -n1)
+          echo "Installed: $(gnome-shell --version)"
+          test "$major" = "${{ matrix.gnome }}"
+          jq -e --arg v "$major" '."shell-version" | index($v) != null' metadata.json
+      - name: Validate settings schema
+        run: make schemas
+      - name: Check the shell internals the extension relies on
+        run: ci/check-shell-api.sh
+
+  package:
+    needs: [lint, shell]
+    runs-on: ubuntu-latest
+    container: fedora:44
+    steps:
+      - uses: actions/checkout@v7
+      - name: Install packaging tools
+        run: dnf install -y --setopt=install_weak_deps=False gnome-shell jq make
+      - name: Set version-name from the tag
+        if: startsWith(github.ref, 'refs/tags/v')
+        run: |
+          jq --arg v "${GITHUB_REF_NAME#v}" '."version-name" = $v' metadata.json > metadata.tmp
+          mv metadata.tmp metadata.json
+      # A single zip covers every shell-version in metadata.json. If a
+      # version ever needs different code, turn this into a matrix that
+      # packs one zip per shell-version range.
+      - run: make pack
+      - uses: actions/upload-artifact@v7
+        with:
+          name: extension
+          path: '*.shell-extension.zip'
+          if-no-files-found: error
+
+  release:
+    if: startsWith(github.ref, 'refs/tags/v')
+    needs: package
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/download-artifact@v8
+        with:
+          name: extension
+      - name: Create GitHub release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh release create "$GITHUB_REF_NAME" *.shell-extension.zip --repo "$GITHUB_REPOSITORY" --generate-notes

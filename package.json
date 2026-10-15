@@ -1,0 +1,14 @@
+{
+  "name": "gnome-minimal-activities-overview",
+  "private": true,
+  "type": "module",
+  "description": "Development tooling only; the extension itself has no npm dependencies.",
+  "scripts": {
+    "lint": "eslint ."
+  },
+  "devDependencies": {
+    "@eslint/js": "10.0.1",
+    "eslint": "10.11.0",
+    "globals": "17.12.0"
+  }
+}

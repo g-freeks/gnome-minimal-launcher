@@ -1,10 +1,17 @@
 UUID := minimal-activities-overview@g-freeks.github.io
 ZIP := $(UUID).shell-extension.zip
 
-.PHONY: schemas pack install enable disable clean logs
+.PHONY: schemas pack install enable disable clean logs lint check
 
 schemas:
 	glib-compile-schemas --strict schemas/
+
+lint:
+	npm run lint
+
+# What CI runs per GNOME version, against the shell installed here
+check: lint schemas
+	ci/check-shell-api.sh
 
 pack:
 	gnome-extensions pack --force --extra-source=popup.js .
@@ -24,8 +31,10 @@ logs:
 clean:
 	rm -f $(ZIP) schemas/gschemas.compiled
 
-# Development VM (see vm/vm for the full command set)
-.PHONY: vm-create vm-start vm-stop vm-reload vm-logs vm-screenshot
+# Development VMs, one per GNOME version: make vm-reload GNOME=49
+# (default 50; see vm/common.sh and vm/vm for the full command set)
+export GNOME
+.PHONY: vm-create vm-start vm-stop vm-reload vm-logs vm-screenshot vm-smoke
 
 vm-create:
 	vm/create.sh
@@ -46,3 +55,7 @@ vm-logs:
 
 vm-screenshot:
 	vm/vm screenshot
+
+# End-to-end popup checks with real key presses (VM must be running)
+vm-smoke:
+	vm/smoke-test.sh

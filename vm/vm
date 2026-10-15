@@ -1,12 +1,11 @@
 #!/bin/bash
 # Drive the development VM created by vm/create.sh.
+# GNOME=<major> selects the VM (default 50), see vm/common.sh.
 set -euo pipefail
 
-REPO=$(cd "$(dirname "$0")/.." && pwd)
-STATE=$REPO/.vm
-VM=gnome-ext-dev
-VIRSH=(virsh -q -c qemu:///session)
-SSH=(ssh -i "$STATE/id_ed25519" -p 2222 -o StrictHostKeyChecking=no
+source "$(dirname "$0")/common.sh"
+VIRSH=(virsh -q -c $CONN)
+SSH=(ssh -i "$STATE/id_ed25519" -p "$SSH_PORT" -o StrictHostKeyChecking=no
      -o UserKnownHostsFile=/dev/null -o LogLevel=ERROR -o ConnectTimeout=5
      dev@127.0.0.1)
 # Commands run over ssh need the logged-in session's bus
@@ -14,14 +13,14 @@ BUS='export DBUS_SESSION_BUS_ADDRESS=unix:path=/run/user/$(id -u)/bus;'
 
 usage() {
     cat <<USAGE
-usage: vm/vm <command> [args]
+usage: [GNOME=<major>] vm/vm <command> [args]
   start | stop | status      power the VM on/off (start waits for the shell)
   ssh [cmd...]               shell or command as user dev
   restart-shell              restart GDM (auto-login) to load new extension code
   wait-shell                 block until GNOME Shell is up, then leave the overview
   eval <js>                  run JS in the VM's gnome-shell, print the result
   logs [journalctl args]     gnome-shell log of the current boot
-  screenshot [file.png]      capture the VM display (default .vm/screen.png)
+  screenshot [file.png]      capture the VM display (default .vm/screen-<major>.png)
   key <KEY>...               press a key combo, e.g. key KEY_LEFTMETA KEY_SLASH
   type <text>                type ASCII text (US layout)
   click <x> <y>              left-click at absolute screen coordinates
@@ -101,7 +100,7 @@ wait-shell) wait_shell ;;
 eval) shell_eval "$1" ;;
 logs) "${SSH[@]}" journalctl -b -o cat /usr/bin/gnome-shell "$@" ;;
 screenshot)
-    out=${1:-$STATE/screen.png}
+    out=${1:-$STATE/screen-$GNOME.png}
     "${VIRSH[@]}" screenshot $VM "$out.tmp" >/dev/null
     magick "$out.tmp" "$out" && rm "$out.tmp"
     echo "$out" ;;
