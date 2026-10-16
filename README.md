@@ -23,14 +23,28 @@ GNOME Shell **49** or **50**. The extension reuses internal parts of GNOME Shell
 
 ## Installation
 
+Download `minimal-launcher@g-freeks.github.io.shell-extension.zip` from the [latest release](https://github.com/g-freeks/gnome-minimal-launcher/releases/latest) and install it:
+
+```sh
+gnome-extensions install --force minimal-launcher@g-freeks.github.io.shell-extension.zip
+```
+
+Log out and back in (on Wayland, GNOME Shell only loads new extensions at login), then enable it in the Extensions app or with:
+
+```sh
+gnome-extensions enable minimal-launcher@g-freeks.github.io
+```
+
+Installing a newer release works the same way; extensions installed from a file don't update automatically.
+
+### From source
+
 ```sh
 git clone https://github.com/g-freeks/gnome-minimal-launcher.git
 cd gnome-minimal-launcher
 make install
 make enable
 ```
-
-On Wayland, log out and back in after installing.
 
 ## Settings
 
