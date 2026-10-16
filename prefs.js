@@ -302,7 +302,7 @@ export default class MinimalLauncherPreferences extends ExtensionPreferences {
 
         const webRow = new Adw.SwitchRow({
             title: _('Search the Web'),
-            subtitle: _('Type “web” followed by search terms to search with your browser’s default search engine, in a new tab.'),
+            subtitle: _('Type “web” followed by search terms to search with your browser’s default search engine, in a new tab where the browser supports it.'),
         });
         settings.bind('enable-web-search', webRow, 'active',
             Gio.SettingsBindFlags.DEFAULT);
