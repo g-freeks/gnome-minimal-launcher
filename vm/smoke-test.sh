@@ -9,7 +9,7 @@ source "$(dirname "$0")/common.sh"
 UUID=$(grep -oP '"uuid":\s*"\K[^"]+' "$REPO/metadata.json")
 POPUP="Main.extensionManager.lookup('$UUID').stateObj._popup"
 SETTINGS="Main.extensionManager.lookup('$UUID').stateObj._settings"
-KEYS="['toggle-popup', 'super-key-opens-popup', 'backdrop-transparency', 'dash-at-bottom', 'enable-path-search', 'enable-run-command', 'vertical-position', 'show-dash', 'dash-icon-scale', 'show-preview', 'search-min-width']"
+KEYS="['toggle-popup', 'super-key-opens-popup', 'backdrop-transparency', 'dash-at-bottom', 'enable-path-search', 'enable-run-command', 'vertical-position', 'show-dash', 'dash-icon-scale', 'show-preview', 'search-min-width', 'open-on-primary-monitor', 'enable-web-search', 'web-search-url']"
 
 failures=0
 # Give the shell a moment: a key press right as a window closes can get lost
@@ -51,6 +51,13 @@ key KEY_RIGHT
 check "Right moves along the dash" "$focus_name !== '$first'"
 key KEY_UP
 check "Up returns to the entry" "$focus_name === 'entry'"
+key KEY_TAB
+check "idle: Tab goes to the dash" "$POPUP._dash.contains(global.stage.key_focus)"
+key KEY_TAB
+check "idle: Tab from the dash returns to the entry" "$focus_name === 'entry'"
+key KEY_LEFTSHIFT KEY_TAB
+check "idle: Shift+Tab goes to the dash" "$POPUP._dash.contains(global.stage.key_focus)"
+key KEY_UP
 
 idle_entry=$(js "$POPUP._entry.width")
 idle_y=$(js "$POPUP._entry.get_transformed_position()[1]")
@@ -65,6 +72,18 @@ js "$SETTINGS.set_int('search-min-width', 3840)" >/dev/null
 check "search results never get wider than the screen" "$POPUP._column.width < Main.layoutManager.primaryMonitor.width"
 js "$SETTINGS.reset('search-min-width')" >/dev/null
 "$VM_CMD" screenshot "$STATE/smoke-$GNOME-search.png" >/dev/null
+row="$POPUP._rows().findIndex(r => r.contains(global.stage.key_focus))"
+rows=$(js "$POPUP._rows().length")
+key KEY_TAB
+check "searching: Tab goes to the first provider's results" "$row === 1 && $POPUP._rows()[1] === $POPUP._searchController._searchResults._content.get_children().find(d => d.visible)"
+key KEY_TAB
+check "searching: the next Tab to the next row ($rows rows)" "$row === 2"
+key KEY_LEFTSHIFT KEY_TAB
+check "searching: Shift+Tab goes back a row" "$row === 1"
+for _ in $(seq $((rows - 2))); do key KEY_TAB; done
+check "searching: Tab after the last provider goes to the dash" "$POPUP._dash.contains(global.stage.key_focus)"
+key KEY_TAB
+check "searching: Tab from the dash wraps to the entry" "$focus_name === 'entry'"
 key KEY_DOWN
 a=$(js "$focus_name")
 key KEY_DOWN
@@ -132,10 +151,22 @@ key KEY_ENTER
 sleep 2
 check "run: a failure shows a notification with the error" "($notifications).includes('No such file or directory')"
 
-js "$SETTINGS.set_boolean('enable-path-search', false); $SETTINGS.set_boolean('enable-run-command', false)" >/dev/null
+# Firefox, the VM's default browser, opens --search in a new window
+key KEY_LEFTMETA KEY_SLASH
+sleep 0.6
+"$VM_CMD" type 'web smoke test'
+sleep 1.5
+check "web: offers to search the web" "global.stage.key_focus === $POPUP._entry.clutter_text && $POPUP._searchProviders.get('enable-web-search').display.visible"
+key KEY_ENTER
+sleep 8
+check "web: the default browser searches for it" "global.get_window_actors().some(({meta_window: w}) => w.get_wm_class() === 'org.mozilla.firefox' && w.title.includes('smoke test'))"
+"$VM_CMD" ssh pkill firefox || true
+sleep 1
+
+js "$SETTINGS.set_boolean('enable-path-search', false); $SETTINGS.set_boolean('enable-run-command', false); $SETTINGS.set_boolean('enable-web-search', false)" >/dev/null
 check "providers can be switched off" "$POPUP._searchProviders.size === 0"
-js "$SETTINGS.reset('enable-path-search'); $SETTINGS.reset('enable-run-command')" >/dev/null
-check "and on again" "$POPUP._searchProviders.size === 2"
+js "$SETTINGS.reset('enable-path-search'); $SETTINGS.reset('enable-run-command'); $SETTINGS.reset('enable-web-search')" >/dev/null
+check "and on again" "$POPUP._searchProviders.size === 3"
 
 # Alt+Tab over the dock's running apps
 "$VM_CMD" ssh 'export DBUS_SESSION_BUS_ADDRESS=unix:path=/run/user/$(id -u)/bus WAYLAND_DISPLAY=wayland-0 XDG_RUNTIME_DIR=/run/user/$(id -u); for app in org.gnome.TextEditor org.gnome.Calculator; do (setsid gtk-launch $app >/dev/null 2>&1 &); sleep 2; done'
@@ -220,6 +251,32 @@ check "vertical position 100%: grown launcher still fits" "(([, y]) => y + $POPU
 key KEY_ESC
 key KEY_ESC
 js "$SETTINGS.reset('vertical-position')" >/dev/null
+
+# A second monitor, 1024x768 to the right of the primary
+"$VM_CMD" monitors 2
+on_monitor() { echo "$POPUP.x === $1 && $POPUP.width === $2 && Math.abs($POPUP._column.x + $POPUP._column.width / 2 - $2 / 2) <= 1"; }
+"$VM_CMD" move 1780 400
+key KEY_LEFTMETA KEY_SLASH
+sleep 0.8
+check "two monitors: opens on the primary by default" "$(on_monitor 0 1280)"
+key KEY_ESC
+js "$SETTINGS.set_boolean('open-on-primary-monitor', false)" >/dev/null
+key KEY_LEFTMETA KEY_SLASH
+sleep 0.8
+check "two monitors: option off, opens centred on the pointer's monitor" "$(on_monitor 1280 1024)"
+"$VM_CMD" type settings
+sleep 2
+check "two monitors: results fit on that monitor" "$POPUP._column.width < 1024 && (([, y]) => y + $POPUP._column.height <= 768)($POPUP._column.get_transformed_position())"
+"$VM_CMD" screenshot "$STATE/smoke-$GNOME-second-monitor.png" 1 >/dev/null
+key KEY_ESC
+key KEY_ESC
+"$VM_CMD" move 400 400
+key KEY_LEFTMETA KEY_SLASH
+sleep 0.8
+check "two monitors: follows the pointer back to the primary" "$(on_monitor 0 1280)"
+key KEY_ESC
+js "$SETTINGS.reset('open-on-primary-monitor')" >/dev/null
+"$VM_CMD" monitors 1
 
 js "$SETTINGS.set_boolean('super-key-opens-popup', true)" >/dev/null
 key KEY_LEFTMETA

@@ -13,12 +13,13 @@ Press <kbd>Super</kbd> and the popup appears over your current windows: the sear
 - **Keyboard navigation.**
   - <kbd>↓</kbd>/<kbd>↑</kbd> move between the search bar, the results and the dash.
   - <kbd>←</kbd>/<kbd>→</kbd> move within a row.
-  - <kbd>Tab</kbd> cycles through the results.
+  - <kbd>Tab</kbd> jumps row by row: from the search bar to each search provider's results in turn, then to the dash, and back to the search bar. <kbd>Shift</kbd>+<kbd>Tab</kbd> goes the other way.
   - <kbd>Esc</kbd> clears the search, and closes the popup once the search bar is empty.
 - **Switch apps with <kbd>Alt</kbd>+<kbd>Tab</kbd>.** While the launcher is open, <kbd>Alt</kbd>+<kbd>Tab</kbd> steps through the running apps in the dock (<kbd>Shift</kbd> goes back), and releasing <kbd>Alt</kbd> switches to the selected one. <kbd>Esc</kbd> cancels.
 - **Closes when you're done.** Launching an app, choosing a result or clicking outside the popup closes it.
 - **Open paths.** Type or paste a path starting with `/` or `~` (or a `file://` URI). Open it, or show it in Files. Matching files and folders are suggested, and <kbd>Tab</kbd> completes the path like a terminal does.
 - **Run commands.** Type `run` followed by a command, for example `run code ~/project`, and press <kbd>Enter</kbd>. It runs in the background through `/bin/sh` from your home folder. If it fails, a notification shows the end of its error output.
+- **Search the web.** Type `web` followed by search terms and press <kbd>Enter</kbd>. Your default browser searches with its own default search engine. Chrome, Chromium and other Chromium-based browsers open the search in a new tab. Firefox and its relatives open it in a new window, because Firefox doesn't offer a way to search in a tab from outside the browser. Other browsers open the search page set in the settings (DuckDuckGo by default).
 - **App grid hand-off.** The dash's *Show Apps* button opens the regular overview's app grid.
 - **Takes over the Super key.** <kbd>Super</kbd> opens the popup instead of the overview, and pressing it twice opens the overview. This can be turned off.
 
@@ -49,15 +50,19 @@ Open the settings from the Extensions app, or run `gnome-extensions prefs minima
 
 - **Shortcut.** Default: <kbd>Super</kbd>+<kbd>/</kbd>, which is free in a default GNOME. Any combination can be recorded, including ones GNOME already uses; the first time, GNOME asks whether the Extensions app may inhibit shortcuts while recording. If GNOME already uses the combination, its own shortcut takes precedence, and the settings window warns about it.
 - **Use the Super key.** On by default. Pressing <kbd>Super</kbd> on its own opens the popup instead of the overview. Pressing <kbd>Super</kbd> twice quickly opens the overview. The Activities button, the hot corner and <kbd>Super</kbd>+<kbd>A</kbd> also still open it.
+- **Always on the primary display.** On by default. Turned off, the launcher opens on the display the mouse pointer is on.
 - **Show preview.** Shows the launcher while you change settings, so every change is visible right away. The preview doesn't take input; move the settings window aside to see it. It turns off when the settings window closes.
 - **Backdrop transparency.** How much of the desktop shows through behind the popup. Default: 65%.
 - **Vertical position.** Where the launcher sits, from the top of the screen (0%) to as low as it fits with search results showing (100%). Default: 40%.
+- **Search results width.** The minimum width of the search box while it shows results, in pixels. Default: 720.
 - **Show dock.** On by default. Without it the launcher is just the search box.
 - **Dock icon size.** 50–200% of the size the dock would pick itself; it still shrinks icons when the dock would get wider than the screen.
 - **Dock at bottom of screen.** Shows the dock at the bottom edge, like the overview does, instead of attached below the search bar.
 
+- **Open paths / Run commands / Search the web.** Turn the search additions on or off. All are on by default.
+- **Search page for other browsers.** The web search page for browsers that aren't Firefox or Chromium based; `%s` stands for the search terms.
+
 The launcher is as wide as its content. With the dock attached, the search box and dock share the width of the wider one. With the dock at the bottom, each has its own width, and search results get at least the dock's width.
-- **Open paths / Run commands.** Turn the two search additions on or off. Both are on by default.
 
 The bottom of the settings window shows the installed version and links to the issue tracker.
 

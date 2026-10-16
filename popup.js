@@ -16,7 +16,7 @@ import {SearchController} from 'resource:///org/gnome/shell/ui/searchController.
 
 import {SEARCH_PROVIDERS} from './providers/index.js';
 
-// Fractions of the primary monitor
+// Fractions of the monitor the launcher shows on
 const DASH_MAX_WIDTH = 0.9;
 const PANEL_SEARCH_HEIGHT = 0.5;
 const DASH_MAX_HEIGHT = 0.12;
@@ -25,15 +25,15 @@ const DASH_BOTTOM_MARGIN = 0.02;
 const FADE_TIME = 120;
 const RESIZE_TIME = 200;
 
-// [direction, wrap around], as St.FocusManager maps them
+// As St.FocusManager maps them
 const NAVIGATION_KEYS = {
-    [Clutter.KEY_Up]: [St.DirectionType.UP, false],
-    [Clutter.KEY_Down]: [St.DirectionType.DOWN, false],
-    [Clutter.KEY_Left]: [St.DirectionType.LEFT, false],
-    [Clutter.KEY_Right]: [St.DirectionType.RIGHT, false],
-    [Clutter.KEY_Tab]: [St.DirectionType.TAB_FORWARD, true],
-    [Clutter.KEY_ISO_Left_Tab]: [St.DirectionType.TAB_BACKWARD, true],
+    [Clutter.KEY_Up]: St.DirectionType.UP,
+    [Clutter.KEY_Down]: St.DirectionType.DOWN,
+    [Clutter.KEY_Left]: St.DirectionType.LEFT,
+    [Clutter.KEY_Right]: St.DirectionType.RIGHT,
 };
+// Shift+Tab arrives as ISO_Left_Tab
+const TAB_KEYS = [Clutter.KEY_Tab, Clutter.KEY_ISO_Left_Tab];
 
 /**
  * @param {Clutter.Event} event - a key press
@@ -120,7 +120,8 @@ class LauncherPopup extends St.Widget {
             reactive: true,
             visible: false,
         });
-        this.add_constraint(new Layout.MonitorConstraint({primary: true}));
+        this._monitorConstraint = new Layout.MonitorConstraint({primary: true});
+        this.add_constraint(this._monitorConstraint);
 
         this._settings = settings;
         this._grab = null;
@@ -220,6 +221,12 @@ class LauncherPopup extends St.Widget {
                 this._adjustDashIconSize();
             },
             'changed::show-preview', () => this._syncPreview(),
+            'changed::open-on-primary-monitor', () => {
+                if (this._previewing) {
+                    this._selectMonitor();
+                    this._updateSize();
+                }
+            },
             'changed::search-min-width', () => this._onSearchChanged(),
             this);
         this._dash.visible = this._settings.get_boolean('show-dash');
@@ -274,6 +281,7 @@ class LauncherPopup extends St.Widget {
         if (this._previewing)
             this._endPreview();
 
+        this._selectMonitor();
         this._updateSize();
         this.opacity = 0;
         this.show();
@@ -318,6 +326,7 @@ class LauncherPopup extends St.Widget {
         if (wanted && !this._previewing && !this.isOpen) {
             this._previewing = true;
             Shell.util_set_hidden_from_pick(this, true);
+            this._selectMonitor();
             this._updateSize();
             this.opacity = 255;
             this.show();
@@ -351,7 +360,7 @@ class LauncherPopup extends St.Widget {
             const enabled = this._settings.get_boolean(settingsKey);
             const provider = this._searchProviders.get(settingsKey);
             if (enabled && !provider) {
-                const newProvider = new Provider();
+                const newProvider = new Provider(this._settings);
                 this._addSearchProvider(newProvider);
                 this._searchProviders.set(settingsKey, newProvider);
             } else if (!enabled && provider) {
@@ -427,13 +436,31 @@ class LauncherPopup extends St.Widget {
         parent.add_child(this._dash);
     }
 
+    // The primary monitor, or the one with the pointer
+    _selectMonitor() {
+        if (this._settings.get_boolean('open-on-primary-monitor')) {
+            this._monitorConstraint.primary = true;
+            return;
+        }
+        this._monitorConstraint.primary = false;
+        this._monitorConstraint.index = global.display.get_current_monitor();
+    }
+
+    get _monitor() {
+        const {layoutManager} = Main;
+        return this._monitorConstraint.primary
+            ? layoutManager.primaryMonitor
+            : layoutManager.monitors[this._monitorConstraint.index] ??
+                layoutManager.primaryMonitor;
+    }
+
     // The column's top edge is set explicitly (the backdrop has no layout
     // manager), so it stays put while the panel grows downwards with search
     // results. `vertical-position` places it within the space left once the
     // panel is fully grown: 0% at the top of the work area, 100% as low as
-    // it fits. Coordinates are relative to the backdrop (the primary monitor).
+    // it fits. Coordinates are relative to the backdrop (its monitor).
     _updateSize() {
-        const monitor = Main.layoutManager.primaryMonitor;
+        const monitor = this._monitor;
         if (!monitor)
             return;
         const workArea = Main.layoutManager.getWorkAreaForMonitor(monitor.index);
@@ -524,7 +551,7 @@ class LauncherPopup extends St.Widget {
         let minWidth = this._settings.get_int('search-min-width') * scaleFactor;
         if (this._dash.get_parent() === this && this._dash.visible)
             minWidth = Math.max(minWidth, this._dash.width);
-        const monitor = Main.layoutManager.primaryMonitor;
+        const monitor = this._monitor;
         if (monitor)
             minWidth = Math.min(minWidth, monitor.width * DASH_MAX_WIDTH);
         return minWidth;
@@ -543,10 +570,13 @@ class LauncherPopup extends St.Widget {
             this._clearOrClose();
             return Clutter.EVENT_STOP;
         case Clutter.KEY_Tab:
-            // Completion where a provider offers it, else into the results
-            return this._completeSearch()
-                ? Clutter.EVENT_STOP
-                : Clutter.EVENT_PROPAGATE;
+            // Completion where a provider offers it, else the next row
+            if (!this._completeSearch())
+                this._focusRow(this._entry, false);
+            return Clutter.EVENT_STOP;
+        case Clutter.KEY_ISO_Left_Tab:
+            this._focusRow(this._entry, true);
+            return Clutter.EVENT_STOP;
         case Clutter.KEY_Down:
             // While searching, SearchController moves Down into the results.
             // Otherwise St.Entry would open its copy/paste menu.
@@ -615,6 +645,11 @@ class LauncherPopup extends St.Widget {
             return Clutter.EVENT_STOP;
         }
 
+        if (TAB_KEYS.includes(symbol) && focus && this._rows().some(row => row.contains(focus))) {
+            this._focusRow(focus, symbol === Clutter.KEY_ISO_Left_Tab);
+            return Clutter.EVENT_STOP;
+        }
+
         if (symbol in NAVIGATION_KEYS && focus && this._navigate(focus, symbol))
             return Clutter.EVENT_STOP;
 
@@ -637,7 +672,7 @@ class LauncherPopup extends St.Widget {
     // mirror it here for the two focus groups (search results, dash), and
     // step between them and the entry at their edges.
     _navigate(focus, symbol) {
-        const [direction, wrap] = NAVIGATION_KEYS[symbol];
+        const direction = NAVIGATION_KEYS[symbol];
         const results = this._searchController._searchResults;
 
         if (this._dash.contains(focus)) {
@@ -651,12 +686,12 @@ class LauncherPopup extends St.Widget {
                     this._entry.grab_key_focus();
                 return true;
             }
-            this._dash.navigate_focus(focus, direction, wrap);
+            this._dash.navigate_focus(focus, direction, false);
             return true;
         }
 
         if (results.contains(focus)) {
-            if (results.navigate_focus(focus, direction, wrap))
+            if (results.navigate_focus(focus, direction, false))
                 return true;
             if (symbol === Clutter.KEY_Up) {
                 this._entry.grab_key_focus();
@@ -669,6 +704,39 @@ class LauncherPopup extends St.Widget {
         }
 
         return false;
+    }
+
+    // Tab and Shift+Tab step between rows: the entry, each provider's
+    // results (focusing its first one) and the dash, wrapping around.
+    // Within a row, the arrow keys move.
+    _rows() {
+        const rows = [this._entry];
+        if (this._searchController.searchActive) {
+            rows.push(...this._searchController._searchResults._content
+                .get_children().filter(display => display.visible));
+        }
+        if (this._dash.visible)
+            rows.push(this._dash);
+        return rows;
+    }
+
+    _focusRow(focus, backward) {
+        const rows = this._rows();
+        const current = rows.findIndex(row => row.contains(focus));
+        if (this._searchController._searchResults.contains(focus))
+            this._setLastResultFocus(focus);
+
+        const step = backward ? rows.length - 1 : 1;
+        for (let i = 1; i < rows.length; i++) {
+            const row = rows[(current + step * i) % rows.length];
+            if (row === this._entry) {
+                this._entry.grab_key_focus();
+                return;
+            }
+            // Skips a provider whose results are still being filled in
+            if (row.navigate_focus(null, St.DirectionType.TAB_FORWARD, false))
+                return;
+        }
     }
 
     // Alt+Tab while the popup is open steps through the dash's running apps,

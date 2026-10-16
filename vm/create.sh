@@ -33,5 +33,5 @@ virt-install --connect $CONN \
     --memorybacking source.type=memfd,access.mode=shared \
     --filesystem type=mount,source.dir="$REPO",target.dir=repo,driver.type=virtiofs \
     --network type=user,backend.type=passt,portForward0.proto=tcp,portForward0.address=127.0.0.1,portForward0.range0.start=$SSH_PORT,portForward0.range0.to=22 \
-    --graphics spice --video virtio \
+    --graphics spice --video model.type=virtio,model.heads=2 \
     --noautoconsole --wait -1

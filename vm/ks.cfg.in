@@ -19,7 +19,8 @@ firstboot --disable
 zerombr
 clearpart --all --initlabel --disklabel=gpt
 autopart
-bootloader --timeout=1
+# Keep the second virtio-gpu head connected without a display client
+bootloader --timeout=1 --append="video=Virtual-2:1024x768e"
 poweroff
 
 %packages
@@ -93,5 +94,41 @@ mkdir -p /home/dev/repo /home/dev/.local/share/gnome-shell/extensions /home/dev/
 echo 'repo /home/dev/repo virtiofs defaults,nofail 0 0' >> /etc/fstab
 ln -s /home/dev/repo /home/dev/.local/share/gnome-shell/extensions/$UUID
 echo yes > /home/dev/.config/gnome-initial-setup-done
+# The second virtio-gpu head (see create.sh) starts disabled; `vm/vm
+# monitors 2` turns it on
+cat > /home/dev/.config/monitors.xml <<'XML'
+<monitors version="2">
+  <configuration>
+    <layoutmode>logical</layoutmode>
+    <logicalmonitor>
+      <x>0</x>
+      <y>0</y>
+      <scale>1</scale>
+      <primary>yes</primary>
+      <monitor>
+        <monitorspec>
+          <connector>Virtual-1</connector>
+          <vendor>RHT</vendor>
+          <product>QEMU Monitor</product>
+          <serial>0x00000000</serial>
+        </monitorspec>
+        <mode>
+          <width>1280</width>
+          <height>800</height>
+          <rate>74.994</rate>
+        </mode>
+      </monitor>
+    </logicalmonitor>
+    <disabled>
+      <monitorspec>
+        <connector>Virtual-2</connector>
+        <vendor>RHT</vendor>
+        <product>QEMU Monitor</product>
+        <serial>0x00000000</serial>
+      </monitorspec>
+    </disabled>
+  </configuration>
+</monitors>
+XML
 chown -R dev:dev /home/dev
 %end

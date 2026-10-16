@@ -219,6 +219,14 @@ export default class MinimalLauncherPreferences extends ExtensionPreferences {
             return false;
         });
 
+        const primaryRow = new Adw.SwitchRow({
+            title: _('Always on the Primary Display'),
+            subtitle: _('Otherwise the launcher opens on the display with the mouse pointer'),
+        });
+        settings.bind('open-on-primary-monitor', primaryRow, 'active',
+            Gio.SettingsBindFlags.DEFAULT);
+        appearanceGroup.add(primaryRow);
+
         appearanceGroup.add(this._createPercentRow(settings, 'backdrop-transparency', {
             title: _('Backdrop Transparency'),
             subtitle: _('How much of the desktop shows through behind the popup'),
@@ -291,6 +299,25 @@ export default class MinimalLauncherPreferences extends ExtensionPreferences {
         settings.bind('enable-run-command', runRow, 'active',
             Gio.SettingsBindFlags.DEFAULT);
         searchGroup.add(runRow);
+
+        const webRow = new Adw.SwitchRow({
+            title: _('Search the Web'),
+            subtitle: _('Type “web” followed by search terms to search with your browser’s default search engine, in a new tab.'),
+        });
+        settings.bind('enable-web-search', webRow, 'active',
+            Gio.SettingsBindFlags.DEFAULT);
+        searchGroup.add(webRow);
+
+        // Firefox and Chromium based browsers search with their own engine
+        const webUrlRow = new Adw.EntryRow({
+            title: _('Search Page for Other Browsers (%s for the Terms)'),
+        });
+        settings.bind('web-search-url', webUrlRow, 'text',
+            Gio.SettingsBindFlags.DEFAULT);
+        settings.bind('enable-web-search', webUrlRow, 'sensitive',
+            Gio.SettingsBindFlags.GET);
+        webUrlRow.add_suffix(createResetButton(settings, 'web-search-url'));
+        searchGroup.add(webUrlRow);
 
         page.add(this._createFooter());
     }

@@ -21,11 +21,14 @@ usage: [GNOME=<major>] vm/vm <command> [args]
   eval <js>                  run JS in the VM's gnome-shell, print the result
   prefs                      (re)open the extension's settings window
   logs [journalctl args]     gnome-shell log of the current boot
-  screenshot [file.png]      capture the VM display (default .vm/screen-<major>.png)
+  screenshot [file.png] [n]  capture the VM display (default .vm/screen-<major>.png),
+                             or its n-th monitor (0 is the primary)
+  monitors <1|2>             one monitor, or a second one (1024x768) to its right
   key <KEY>...               press a key combo, e.g. key KEY_LEFTMETA KEY_SLASH
   hold <down|up> <qcode>...  press or release keys separately (QEMU qcodes,
                              e.g. hold down alt; key KEY_TAB; hold up alt)
   type <text>                type ASCII text (US layout)
+  move <x> <y>               move the pointer to absolute screen coordinates
   click <x> <y>              left-click at absolute screen coordinates
   snapshot <name>            snapshot the (shut off) VM
   revert <name>              revert to a snapshot
@@ -54,7 +57,8 @@ wait_shell() {
 }
 
 # QMP absolute pointer coordinates are 0..32767 over the whole display
-qmp_click() {
+# (all monitors)
+qmp_move() {
     local res w h x y
     res=$(shell_eval 'const [w, h] = global.stage.get_size(); `${w}x${h}`' |
         grep -oE '[0-9]+x[0-9]+' | tr x ' ')
@@ -63,6 +67,10 @@ qmp_click() {
     "${VIRSH[@]}" qemu-monitor-command $VM "{\"execute\":\"input-send-event\",\"arguments\":{\"events\":[
         {\"type\":\"abs\",\"data\":{\"axis\":\"x\",\"value\":$x}},
         {\"type\":\"abs\",\"data\":{\"axis\":\"y\",\"value\":$y}}]}}" >/dev/null
+}
+
+qmp_click() {
+    qmp_move "$1" "$2"
     for down in true false; do
         "${VIRSH[@]}" qemu-monitor-command $VM "{\"execute\":\"input-send-event\",\"arguments\":{\"events\":[
             {\"type\":\"btn\",\"data\":{\"down\":$down,\"button\":\"left\"}}]}}" >/dev/null
@@ -120,7 +128,7 @@ prefs)
 logs) "${SSH[@]}" journalctl -b -o cat /usr/bin/gnome-shell "$@" ;;
 screenshot)
     out=${1:-$STATE/screen-$GNOME.png}
-    "${VIRSH[@]}" screenshot $VM "$out.tmp" >/dev/null
+    "${VIRSH[@]}" screenshot $VM "$out.tmp" --screen "${2:-0}" >/dev/null
     magick "$out.tmp" "$out" && rm "$out.tmp"
     echo "$out" ;;
 key) "${VIRSH[@]}" send-key $VM "$@" >/dev/null ;;
@@ -132,7 +140,28 @@ hold)
             {\"type\":\"key\",\"data\":{\"down\":$down,\"key\":{\"type\":\"qcode\",\"data\":\"$qcode\"}}}]}}" >/dev/null
     done ;;
 type) type_text "$1" ;;
+move) qmp_move "$1" "$2"; sleep 0.3 ;;
 click) qmp_click "$1" "$2" ;;
+monitors)
+    # The VM has a second virtio-gpu head, always connected (video=...e on
+    # the kernel command line); this applies a persistent layout with or
+    # without it
+    layout="(0, 0, 1.0, uint32 0, true, [('Virtual-1', '1280x800@74.994', @a{sv} {})])"
+    case ${1:-} in
+    1) ;;
+    2) layout+=", (1280, 0, 1.0, 0, false, [('Virtual-2', '1024x768@60.004', @a{sv} {})])" ;;
+    *) usage; exit 1 ;;
+    esac
+    "${SSH[@]}" "$BUS"' dc="--session --dest org.gnome.Mutter.DisplayConfig
+        --object-path /org/gnome/Mutter/DisplayConfig --method org.gnome.Mutter.DisplayConfig"
+        serial=$(gdbus call $dc.GetCurrentState | grep -oP "^\(uint32 \K[0-9]+")
+        gdbus call $dc.ApplyMonitorsConfig $serial 2 "['"$layout"']" "{}"' >/dev/null
+    # A changed layout is reverted unless "Keep Changes" is confirmed
+    sleep 2
+    if shell_eval 'Main.modalCount' | grep -q "'1'"; then
+        "${VIRSH[@]}" send-key $VM KEY_ENTER >/dev/null
+        sleep 1
+    fi ;;
 snapshot) "${VIRSH[@]}" snapshot-create-as $VM "$1" ;;
 revert) "${VIRSH[@]}" snapshot-revert $VM "$1" ;;
 *) usage ;;
