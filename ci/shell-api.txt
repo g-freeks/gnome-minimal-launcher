@@ -7,8 +7,11 @@ ui/searchController.js	^export const SearchController = GObject\.registerClass
 ui/searchController.js	_init\(searchEntry, showAppsButton\)
 ui/searchController.js	this\._searchResults = new Search\.SearchResultsView\(\)
 ui/searchController.js	Main\.overview\.connect\('showing'
-ui/searchController.js	^    _shouldTriggerSearch\(symbol\)
-ui/searchController.js	^    startSearch\(event\)
+# Type-to-search: forwarded by the popup up to GNOME 50, an input
+# interceptor on the entry from 51
+ui/searchController.js	^    _shouldTriggerSearch\(symbol\)|this\._text\.set_input_interceptor\(
+ui/searchController.js	^    startSearch\(event\)|this\._text\.set_input_interceptor\(
+ui/overviewControls.js	this\._searchEntry = new (St\.Entry|Search\.SearchEntry)\(
 ui/searchController.js	^    reset\(\)
 ui/searchController.js	^    get searchActive\(\)
 ui/search.js	^    navigateFocus\(direction\)

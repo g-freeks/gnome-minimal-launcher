@@ -34,6 +34,7 @@ jobs:
         include:
           - {gnome: 49, fedora: 43}
           - {gnome: 50, fedora: 44}
+          - {gnome: 51, fedora: 45}
     steps:
       - uses: actions/checkout@v7
       - name: Install GNOME Shell

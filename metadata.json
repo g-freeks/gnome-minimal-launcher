@@ -4,7 +4,8 @@
   "description": "low-distraction GNOME application launcher",
   "shell-version": [
     "49",
-    "50"
+    "50",
+    "51"
   ],
   "settings-schema": "org.gnome.shell.extensions.minimal-launcher",
   "url": "https://github.com/g-freeks/gnome-minimal-launcher"

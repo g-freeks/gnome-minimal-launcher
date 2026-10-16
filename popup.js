@@ -12,6 +12,7 @@ import * as ParentalControlsManager from 'resource:///org/gnome/shell/misc/paren
 import {Dash} from 'resource:///org/gnome/shell/ui/dash.js';
 import * as Layout from 'resource:///org/gnome/shell/ui/layout.js';
 import * as Main from 'resource:///org/gnome/shell/ui/main.js';
+import * as Search from 'resource:///org/gnome/shell/ui/search.js';
 import {SearchController} from 'resource:///org/gnome/shell/ui/searchController.js';
 
 import {SEARCH_PROVIDERS} from './providers/index.js';
@@ -79,7 +80,7 @@ function constructRecordingHandlers(targets, construct) {
  * The returned handlers must be disconnected before destroying the
  * controller. The Main.overview 'showing'/'hiding' handlers are dropped
  * right away: they enable type-to-search on the stage and would steal key
- * focus from the real overview's search. The popup forwards keys itself.
+ * focus from the real overview's search. The popup sets up its own.
  *
  * @param {St.Entry} entry - the search entry
  * @param {St.Button} showAppsButton - the dash's show-apps toggle
@@ -99,12 +100,15 @@ function createSearchController(entry, showAppsButton) {
 
     // A provider can be unregistered (and its result widgets destroyed)
     // while its search is still running: remote providers are reloaded
-    // when apps get installed, ours when switched off. The finished search
-    // would then update the destroyed widgets.
+    // when apps get installed, ours when switched off, and all of them go
+    // when the extension is disabled. The finished search would then update
+    // the destroyed widgets.
     const results = controller._searchResults;
+    let destroyed = false;
+    results.connect('destroy', () => (destroyed = true));
     const updateResults = results._updateResults;
     results._updateResults = function (provider, ...args) {
-        if (!this._providers.includes(provider))
+        if (destroyed || !this._providers.includes(provider))
             return Promise.resolve();
         return updateResults.call(this, provider, ...args);
     };
@@ -152,8 +156,10 @@ class LauncherPopup extends St.Widget {
         this._column.add_child(this._panel);
 
         // Same construction as ControlsManager in ui/overviewControls.js,
-        // so the theme's overview styles apply unchanged.
-        this._entry = new St.Entry({
+        // so the theme's overview styles apply unchanged. GNOME 51 has its
+        // own entry class, whose signals SearchController connects to.
+        const SearchEntry = Search.SearchEntry ?? St.Entry;
+        this._entry = new SearchEntry({
             style_class: 'search-entry',
             // Reuse the shell's translation of the overview's hint text
             hint_text: Gettext.dgettext('gnome-shell', 'Type to search'),
@@ -173,11 +179,6 @@ class LauncherPopup extends St.Widget {
         // dash-icon-scale applies on top of the size the dash picks itself
         this._dashBaseIconSize = this._dash.iconSize;
         this._dash._adjustIconSize = () => this._adjustDashIconSize();
-
-        // Connected before SearchController connects its own handler, so this
-        // one runs first (see _onEntryKeyPress)
-        this._entry.clutter_text.connectObject('key-press-event',
-            this._onEntryKeyPress.bind(this), this);
 
         [this._searchController, this._searchHandlers] =
             createSearchController(this._entry, this._dash.showAppsButton);
@@ -256,8 +257,9 @@ class LauncherPopup extends St.Widget {
             Main.overview.showApps();
         }, this);
 
-        this.connect('key-press-event', this._onKeyPress.bind(this));
-        this.connect('key-release-event', this._onKeyRelease.bind(this));
+        // Keys are handled on their way down, before the entry,
+        // SearchController and (from GNOME 51) St.FocusManager see them
+        this.connect('captured-event', this._onCapturedEvent.bind(this));
         this.connect('button-release-event', this._onButtonRelease.bind(this));
         this.connect('destroy', this._onDestroy.bind(this));
 
@@ -293,6 +295,9 @@ class LauncherPopup extends St.Widget {
 
         this._grab = Main.pushModal(this, {actionMode: Shell.ActionMode.POPUP});
         this._patchOverview();
+        // Type-to-search from GNOME 51: printable keys reaching the backdrop
+        // (focus on the dash or results) go to the entry
+        this._entry.clutter_text.set_input_interceptor?.(this);
         this._entry.grab_key_focus();
     }
 
@@ -306,6 +311,9 @@ class LauncherPopup extends St.Widget {
         this._searchController.reset();
         this._setIdleLayout();
 
+        // Removed before any destroy: once that starts, the interceptor
+        // can't detach itself cleanly (a Clutter warning)
+        this._entry.clutter_text.set_input_interceptor?.(null);
         this._unpatchOverview();
         Main.popModal(this._grab);
         this._grab = null;
@@ -557,12 +565,18 @@ class LauncherPopup extends St.Widget {
         return minWidth;
     }
 
-    _onEntryKeyPress(text, event) {
-        if (isAltTab(event)) {
-            this._switchApp(event);
-            return Clutter.EVENT_STOP;
+    _onCapturedEvent(actor, event) {
+        switch (event.type()) {
+        case Clutter.EventType.KEY_PRESS:
+            return this._onKeyPress(event);
+        case Clutter.EventType.KEY_RELEASE:
+            return this._onKeyRelease(event);
+        default:
+            return Clutter.EVENT_PROPAGATE;
         }
+    }
 
+    _onEntryKeyPress(event) {
         switch (event.get_key_symbol()) {
         case Clutter.KEY_Escape:
             // SearchController would clear the entry and drop key focus, and
@@ -630,7 +644,7 @@ class LauncherPopup extends St.Widget {
         this._dash.navigate_focus(null, St.DirectionType.TAB_FORWARD, false);
     }
 
-    _onKeyPress(actor, event) {
+    _onKeyPress(event) {
         const symbol = event.get_key_symbol();
         const focus = global.stage.key_focus;
 
@@ -638,6 +652,9 @@ class LauncherPopup extends St.Widget {
             this._switchApp(event);
             return Clutter.EVENT_STOP;
         }
+
+        if (focus === this._entry.clutter_text)
+            return this._onEntryKeyPress(event);
 
         if (this._switchTarget && symbol === Clutter.KEY_Escape) {
             this._endSwitch();
@@ -659,7 +676,8 @@ class LauncherPopup extends St.Widget {
         }
 
         // Type-to-search while focus is on the dash, results or nothing
-        if (this._searchController._shouldTriggerSearch(symbol)) {
+        // (GNOME 51 uses the entry's input interceptor instead)
+        if (this._searchController._shouldTriggerSearch?.(symbol)) {
             this._searchController.startSearch(event);
             return Clutter.EVENT_STOP;
         }
@@ -667,9 +685,10 @@ class LauncherPopup extends St.Widget {
         return Clutter.EVENT_PROPAGATE;
     }
 
-    // St.FocusManager does keyboard navigation from the stage's event
-    // handler, which never sees events under the popup's modal grab, so
-    // mirror it here for the two focus groups (search results, dash), and
+    // Up to GNOME 50, St.FocusManager does keyboard navigation from the
+    // stage's event handler, which never sees events under the popup's modal
+    // grab (from 51 it's handled by each focus group, but without stepping
+    // between them). So mirror it here for the two focus groups (search results, dash), and
     // step between them and the entry at their edges.
     _navigate(focus, symbol) {
         const direction = NAVIGATION_KEYS[symbol];
@@ -769,7 +788,7 @@ class LauncherPopup extends St.Widget {
         target.showLabel();
     }
 
-    _onKeyRelease(actor, event) {
+    _onKeyRelease(event) {
         const altKeys = [Clutter.KEY_Alt_L, Clutter.KEY_Alt_R,
             Clutter.KEY_Meta_L, Clutter.KEY_Meta_R];
         if (!this._switchTarget || !altKeys.includes(event.get_key_symbol()))

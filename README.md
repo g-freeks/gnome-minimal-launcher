@@ -19,7 +19,7 @@ Press <kbd>Super</kbd> to open it over your windows: the search bar on top, your
 
 ## Requirements
 
-GNOME Shell **49** or **50**. The extension reuses internal parts of GNOME Shell, so other versions aren't supported until they've been checked.
+GNOME Shell **49**, **50** or **51**. The extension reuses internal parts of GNOME Shell, so other versions aren't supported until they've been checked.
 
 ## Installation
 

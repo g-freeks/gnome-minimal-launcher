@@ -57,7 +57,11 @@ key KEY_TAB
 check "idle: Tab from the dash returns to the entry" "$focus_name === 'entry'"
 key KEY_LEFTSHIFT KEY_TAB
 check "idle: Shift+Tab goes to the dash" "$POPUP._dash.contains(global.stage.key_focus)"
-key KEY_UP
+"$VM_CMD" type x
+check "typing with focus on the dash searches" "$focus_name === 'entry' && $POPUP._entry.text === 'x'"
+key KEY_ESC
+sleep 0.5
+check "Esc clears the search, focus stays in the entry" "$focus_name === 'entry' && $POPUP.isOpen && $POPUP._entry.text === ''"
 
 idle_entry=$(js "$POPUP._entry.width")
 idle_y=$(js "$POPUP._entry.get_transformed_position()[1]")
@@ -160,8 +164,10 @@ check "web: offers to search the web" "global.stage.key_focus === $POPUP._entry.
 key KEY_ENTER
 sleep 8
 check "web: the default browser searches for it" "global.get_window_actors().some(({meta_window: w}) => w.get_wm_class() === 'org.mozilla.firefox' && w.title.includes('smoke test'))"
-"$VM_CMD" ssh pkill firefox || true
-sleep 1
+# Closed like a user would: killed Firefoxes count as crashed startups, and
+# after a few it asks to start in troubleshoot mode
+js "global.get_window_actors().map(a => a.meta_window).filter(w => w.get_wm_class() === 'org.mozilla.firefox').forEach(w => w.delete(global.get_current_time()))" >/dev/null
+sleep 3
 
 js "$SETTINGS.set_boolean('enable-path-search', false); $SETTINGS.set_boolean('enable-run-command', false); $SETTINGS.set_boolean('enable-web-search', false)" >/dev/null
 check "providers can be switched off" "$POPUP._searchProviders.size === 0"
@@ -305,7 +311,12 @@ js "Main.overview.hide()" >/dev/null
 sleep 1.5
 
 # Disabling must leave nothing connected: poke the shell-wide objects the
-# search code connects to, which would reach destroyed widgets otherwise
+# search code connects to, which would reach destroyed widgets otherwise.
+# Disabled while open and searching, as a screen lock would.
+key KEY_LEFTMETA KEY_SLASH
+sleep 0.6
+"$VM_CMD" type calc
+sleep 1
 js "Main.extensionManager.disableExtension('$UUID')" >/dev/null
 sleep 1.5
 check "disabling deactivates the extension" "Main.extensionManager.lookup('$UUID').state !== 1"
@@ -318,7 +329,7 @@ check "re-enabling activates it again" "Main.extensionManager.lookup('$UUID').st
 
 js "$KEYS.forEach(k => $SETTINGS.reset(k))" >/dev/null
 
-errors=$("$VM_CMD" logs --since "'$since'" | grep -cE "JS ERROR|already disposed|assertion .* failed|Unhandled promise|$UUID" || true)
+errors=$("$VM_CMD" logs --since "'$since'" | grep -cE "JS ERROR|already disposed|assertion .* failed|Unhandled promise|not attached to the actor|$UUID" || true)
 check "no errors in the shell log during the test" "$errors === 0"
 
 echo

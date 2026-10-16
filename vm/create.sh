@@ -17,9 +17,12 @@ sed -e "s|@SSH_PUBKEY@|$(cat "$STATE/id_ed25519.pub")|" \
     "$REPO/vm/ks.cfg.in" > "$KS"
 
 # Pin one mirror: virt-install fetches several files, and going through the
-# download.fedoraproject.org redirector each time is flaky
-TREE=https://download.fedoraproject.org/pub/fedora/linux/releases/$FEDORA/Everything/x86_64/os/
-TREE=$(curl -fsIL -o /dev/null -w '%{url_effective}' "$TREE.treeinfo")
+# download.fedoraproject.org redirector each time is flaky. A Fedora
+# release that isn't out yet is still under development/.
+for dir in releases development; do
+    TREE=https://download.fedoraproject.org/pub/fedora/linux/$dir/$FEDORA/Everything/x86_64/os/
+    TREE=$(curl -fsIL -o /dev/null -w '%{url_effective}' "$TREE.treeinfo") && break
+done
 TREE=${TREE%.treeinfo}
 
 virt-install --connect $CONN \

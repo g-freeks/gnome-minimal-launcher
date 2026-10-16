@@ -1,7 +1,6 @@
 // SPDX-License-Identifier: GPL-2.0-or-later
 // SPDX-FileCopyrightText: 2026 g-freeks
 
-import Clutter from 'gi://Clutter';
 import GLib from 'gi://GLib';
 import GObject from 'gi://GObject';
 import Meta from 'gi://Meta';
@@ -37,6 +36,8 @@ export default class MinimalLauncherExtension extends Extension {
         this._releaseSuperKey();
         Main.wm.removeKeybinding('toggle-popup');
 
+        // Closing first lets it take down what it set up while still intact
+        this._popup.close();
         this._popup.destroy();
         this._popup = null;
         this._settings = null;
@@ -80,7 +81,7 @@ export default class MinimalLauncherExtension extends Extension {
 
     _onSuperKey() {
         const now = GLib.get_monotonic_time() / 1000;
-        const doubleClickTime = Clutter.Settings.get_default().double_click_time;
+        const doubleClickTime = global.stage.get_context().get_settings().double_click_time;
         const isDoublePress = now - this._lastSuperKeyTime < doubleClickTime;
         this._lastSuperKeyTime = now;
 
