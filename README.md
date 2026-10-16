@@ -1,6 +1,6 @@
 # Minimal Launcher
 
-A low-distraction application launcher for GNOME Shell. It gives you the Activities overview's search bar and dash in a small centered popup, without zooming out to the full-screen window overview.
+A low-distraction application launcher for GNOME Shell that attempts to stay faithful to the GNOME look&feel. It gives you the Activities overview's search bar and dash in a small centered popup, without zooming out to the full-screen window overview.
 
 Press <kbd>Super</kbd> to open it over your windows: the search bar on top, your pinned and running apps below. Press <kbd>Super</kbd> twice for the regular overview. <kbd>Super</kbd>+<kbd>/</kbd> opens it too.
 
