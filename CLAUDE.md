@@ -21,13 +21,14 @@ There is no test suite. `npm run lint` uses ESLint 10 with `eslint.config.js`; n
 
 The strategy is one source tree and one zip covering every listed `shell-version`. Where a version differs, use runtime feature detection rather than separate code paths per build. Only split into per-version zips (a matrix in the CI `package` job) if a version truly can't share code.
 
-The list of supported versions lives in three places that must agree:
+The list of supported versions lives in four places that must agree:
 - `shell-version` in `metadata.json`
 - the `shell` job matrix in `.github/workflows/ci.yml`, each version paired with the Fedora release that ships it
 - the GNOME→Fedora map in `vm/common.sh`
+- the GNOME badge at the top of `README.md`
 
 To add a version:
-1. Add it in all three places.
+1. Add it in all four places.
 2. Run `ci/check-shell-api.sh` against it (CI does this in the matching Fedora container). It greps the shell's own JS for every internal listed in `ci/shell-api.txt`, so keep that file in sync when `popup.js` starts relying on something new.
 3. Test it in a VM: `make vm-create GNOME=<n>`, then `make vm-smoke GNOME=<n>`. `vm/smoke-test.sh` drives the popup with real key presses: open, dash and result navigation, Esc, launching, every setting including the Super key takeover, the regular overview still working, and no log errors. It resets all settings at the start and at the end, and saves screenshots to `.vm/smoke-<n>-*.png`.
 

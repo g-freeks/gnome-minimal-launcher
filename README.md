@@ -1,5 +1,9 @@
 # Minimal Launcher
 
+[![CI](https://img.shields.io/github/actions/workflow/status/g-freeks/gnome-minimal-launcher/ci.yml?branch=main)](https://github.com/g-freeks/gnome-minimal-launcher/actions/workflows/ci.yml)
+![GNOME 49 | 50 | 51](https://img.shields.io/badge/GNOME-49%20%7C%2050%20%7C%2051-4A86CF?logo=gnome&logoColor=white)
+[![Release](https://img.shields.io/github/v/release/g-freeks/gnome-minimal-launcher)](https://github.com/g-freeks/gnome-minimal-launcher/releases/latest)
+
 A low-distraction application launcher for GNOME Shell that attempts to stay faithful to the GNOME look&feel. It gives you the Activities overview's search bar and dash in a small centered popup, without zooming out to the full-screen window overview.
 
 Press <kbd>Super</kbd> to open it over your windows: the search bar on top, your pinned and running apps below. Press <kbd>Super</kbd> twice for the regular overview. <kbd>Super</kbd>+<kbd>/</kbd> opens it too.
